@@ -1,6 +1,7 @@
 package com.financetracker.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import com.financetracker.domain.model.Banks
 
 val Green500 = Color(0xFF4CAF50)
 val Green700 = Color(0xFF388E3C)
@@ -23,19 +24,25 @@ fun accountColorHex(type: String): String = when (type) {
     else -> "#757575"
 }
 
-fun accountColor(type: String): Color = when (type) {
+fun accountColor(type: String, accountName: String = ""): Color = when (type) {
     "wechat" -> WeChatGreen
     "alipay" -> AlipayBlue
     "jd" -> JDRed
-    "bank" -> BankOrange
+    "bank" -> {
+        val bank = Banks.all.firstOrNull { it.name in accountName }
+        bank?.let { Color(android.graphics.Color.parseColor(it.colorHex)) } ?: BankOrange
+    }
     else -> Color(0xFF757575)
 }
 
-fun accountIcon(type: String): String = when (type) {
+fun accountIcon(type: String, accountName: String = ""): String = when (type) {
     "wechat" -> "💬"
     "alipay" -> "🔵"
     "jd" -> "🛒"
-    "bank" -> "🏦"
+    "bank" -> {
+        val bank = Banks.all.firstOrNull { it.name in accountName }
+        bank?.icon ?: "🏦"
+    }
     else -> "💳"
 }
 

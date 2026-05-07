@@ -3,6 +3,7 @@ package com.financetracker.ui.screen.settings
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -41,8 +43,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.financetracker.di.AppModule
+import com.financetracker.domain.model.Banks
 import com.financetracker.ui.theme.Green500
 import com.financetracker.ui.theme.Red500
+import com.financetracker.ui.theme.accountIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,11 +125,14 @@ fun SettingsScreen() {
                             } catch (_: Exception) { Color.Gray }
                             var showDialog by remember { mutableStateOf(false) }
                             var editText by remember { mutableStateOf(acc.balance.toString()) }
+                            var showBankPicker by remember { mutableStateOf(false) }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth().clickable { showDialog = true }.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                Text(accountIcon(acc.type, acc.name), style = MaterialTheme.typography.titleMedium)
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(acc.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                                 Text(
                                     "¥${String.format("%.2f", acc.balance)}",
@@ -137,15 +144,22 @@ fun SettingsScreen() {
                             if (showDialog) {
                                 AlertDialog(
                                     onDismissRequest = { showDialog = false },
-                                    title = { Text("编辑 ${acc.name} 余额") },
+                                    title = { Text("编辑 ${acc.name}") },
                                     text = {
-                                        OutlinedTextField(
-                                            value = editText,
-                                            onValueChange = { editText = it },
-                                            label = { Text("余额（可正可负）") },
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                            singleLine = true,
-                                        )
+                                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                            OutlinedTextField(
+                                                value = editText,
+                                                onValueChange = { editText = it },
+                                                label = { Text("余额（可正可负）") },
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                                singleLine = true,
+                                            )
+                                            if (acc.type == "bank") {
+                                                TextButton(onClick = { showBankPicker = true; showDialog = false }) {
+                                                    Text("选择银行卡…")
+                                                }
+                                            }
+                                        }
                                     },
                                     confirmButton = {
                                         TextButton(onClick = {
@@ -155,6 +169,36 @@ fun SettingsScreen() {
                                     },
                                     dismissButton = {
                                         TextButton(onClick = { showDialog = false }) { Text("取消") }
+                                    },
+                                )
+                            }
+
+                            if (showBankPicker) {
+                                val banks = Banks.all
+                                AlertDialog(
+                                    onDismissRequest = { showBankPicker = false },
+                                    title = { Text("选择银行") },
+                                    text = {
+                                        LazyColumn {
+                                            items(banks) { bank ->
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth().clickable {
+                                                        viewModel.setBalance(acc.id, acc.balance) // keep balance
+                                                        viewModel.updateAccountName(acc.id, bank.name, bank.colorHex)
+                                                        showBankPicker = false
+                                                    }.padding(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Text(bank.icon, style = MaterialTheme.typography.titleMedium)
+                                                    Spacer(modifier = Modifier.width(12.dp))
+                                                    Text(bank.name, style = MaterialTheme.typography.bodyLarge)
+                                                }
+                                            }
+                                        }
+                                    },
+                                    confirmButton = {},
+                                    dismissButton = {
+                                        TextButton(onClick = { showBankPicker = false }) { Text("取消") }
                                     },
                                 )
                             }

@@ -141,7 +141,7 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Text(
-                                    "${accountIcon(acc.type)} ${acc.name}",
+                                    "${accountIcon(acc.type, acc.name)} ${acc.name}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

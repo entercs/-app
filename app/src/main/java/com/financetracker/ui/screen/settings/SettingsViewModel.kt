@@ -74,6 +74,10 @@ class SettingsViewModel(
         viewModelScope.launch { accountRepo.updateBalance(accountId, newBalance) }
     }
 
+    fun updateAccountName(accountId: Long, name: String, color: String) {
+        viewModelScope.launch { accountRepo.updateNameAndColor(accountId, name, color) }
+    }
+
     fun clearExportState() {
         _exportState.value = ExportState.Idle
     }

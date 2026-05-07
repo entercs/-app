@@ -32,4 +32,7 @@ interface PaymentAccountDao {
 
     @Query("UPDATE payment_accounts SET balance = :balance WHERE id = :id")
     suspend fun updateBalance(id: Long, balance: Double)
+
+    @Query("UPDATE payment_accounts SET name = :name, color = :color WHERE id = :id")
+    suspend fun updateNameAndColor(id: Long, name: String, color: String)
 }

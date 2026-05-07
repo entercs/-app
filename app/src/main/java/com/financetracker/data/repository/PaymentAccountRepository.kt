@@ -24,6 +24,8 @@ class PaymentAccountRepository(private val dao: PaymentAccountDao) {
 
     suspend fun updateBalance(id: Long, balance: Double) = dao.updateBalance(id, balance)
 
+    suspend fun updateNameAndColor(id: Long, name: String, color: String) = dao.updateNameAndColor(id, name, color)
+
     suspend fun seedIfEmpty() {
         if (dao.count() == 0) {
             listOf(

@@ -81,7 +81,7 @@ fun TransactionItem(
 
                 // Account badge
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(accountIcon(account?.type ?: ""), fontSize = MaterialTheme.typography.bodySmall.fontSize)
+                    Text(accountIcon(account?.type ?: "", account?.name ?: ""), fontSize = MaterialTheme.typography.bodySmall.fontSize)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = account?.name ?: "未知账户",

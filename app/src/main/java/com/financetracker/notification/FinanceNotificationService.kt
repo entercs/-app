@@ -29,6 +29,9 @@ class FinanceNotificationService : AccessibilityService() {
     private var lastScreenCaptureTime = 0L
     private var lastScreenCaptureHash = 0
 
+    // Global dedup: prevent same amount from being recorded twice within 30s
+    private val recentRecordedAmounts = mutableMapOf<Double, Long>()
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val packageName = event.packageName?.toString() ?: return
         val parser = parsers.firstOrNull { packageName in it.supportedPackages } ?: return
@@ -104,6 +107,15 @@ class FinanceNotificationService : AccessibilityService() {
     }
 
     private suspend fun recordTransaction(parsed: com.financetracker.domain.model.ParsedNotification) {
+        val now = System.currentTimeMillis()
+
+        // Global dedup: same amount within 30s → skip
+        val lastTime = recentRecordedAmounts[parsed.amount]
+        if (lastTime != null && now - lastTime < 30_000) return
+
+        // Clean old entries
+        recentRecordedAmounts.entries.removeAll { now - it.value > 60_000 }
+
         val db = com.financetracker.FinanceTrackerApp.instance.database
         val account = db.paymentAccountDao().getByType(parsed.accountType) ?: return
         val categoryId = classifier.classify(parsed.merchant)
@@ -118,6 +130,7 @@ class FinanceNotificationService : AccessibilityService() {
             source = "notification",
         )
         com.financetracker.di.AppModule.transactionRepository.add(transaction)
+        recentRecordedAmounts[parsed.amount] = now
     }
 
     private fun showNotification(title: String, content: String) {

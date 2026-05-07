@@ -134,7 +134,7 @@ fun TransactionDetailScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         DetailRow("分类", "${category?.icon ?: ""} ${category?.name ?: "未知"}")
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        DetailRow("账户", "${accountIcon(account?.type ?: "")} ${account?.name ?: "未知"}")
+                        DetailRow("账户", "${accountIcon(account?.type ?: "", account?.name ?: "")} ${account?.name ?: "未知"}")
                     }
                 }
             }
