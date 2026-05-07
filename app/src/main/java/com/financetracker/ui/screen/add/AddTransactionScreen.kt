@@ -44,6 +44,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
@@ -78,6 +80,9 @@ fun AddTransactionScreen(editTransactionId: Long? = null, onNavigateBack: () -> 
     LaunchedEffect(editTransactionId) {
         editTransactionId?.let { viewModel.loadTransaction(it) }
     }
+
+    val amountFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { amountFocusRequester.requestFocus() }
 
     val amount by viewModel.amount.collectAsState()
     val selectedType by viewModel.selectedType.collectAsState()
@@ -125,7 +130,7 @@ fun AddTransactionScreen(editTransactionId: Long? = null, onNavigateBack: () -> 
                     onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) viewModel.setAmount(it) },
                     label = { Text("金额") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().focusRequester(amountFocusRequester),
                     textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
                     singleLine = true,
                     prefix = { Text("¥ ", color = MaterialTheme.colorScheme.onSurfaceVariant) },

@@ -9,8 +9,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val navigateToAdd = intent?.getBooleanExtra("navigate_to_add", false) == true
         setContent {
-            App()
+            App(initialNavigateToAdd = navigateToAdd)
         }
     }
 }

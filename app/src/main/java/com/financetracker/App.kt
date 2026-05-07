@@ -3,6 +3,7 @@ package com.financetracker
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -14,9 +15,16 @@ import com.financetracker.ui.navigation.NavGraph
 import com.financetracker.ui.theme.FinanceTrackerTheme
 
 @Composable
-fun App() {
+fun App(initialNavigateToAdd: Boolean = false) {
     FinanceTrackerTheme {
         val navController = rememberNavController()
+
+        LaunchedEffect(Unit) {
+            if (initialNavigateToAdd) {
+                navController.navigate(Screen.AddTransaction.route)
+            }
+        }
+
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 
