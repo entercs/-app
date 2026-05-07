@@ -1,6 +1,7 @@
 package com.financetracker.notification
 
 import android.accessibilityservice.AccessibilityService
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -35,14 +36,27 @@ class FinanceNotificationService : AccessibilityService() {
         if (event.eventType != AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) return
 
         val packageName = event.packageName?.toString() ?: return
-        val texts = event.text
-        val title = texts.firstOrNull()?.toString() ?: ""
-        val fullText = texts.joinToString(" ") { it.toString() }
+
+        // Extract real notification content via parcelableData (not event.text which is ticker only)
+        val notif = event.parcelableData as? Notification
+        val title = notif?.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+            ?: notif?.extras?.getString(Notification.EXTRA_TITLE) ?: ""
+        val text = notif?.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+            ?: notif?.extras?.getString(Notification.EXTRA_TEXT) ?: ""
+        val subText = notif?.extras?.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
+            ?: notif?.extras?.getString(Notification.EXTRA_SUB_TEXT) ?: ""
+
+        // Fallback to event.text if parcelableData didn't yield anything
+        val fullText = listOf(title, text, subText).filter { it.isNotBlank() }.joinToString(" ")
+        val finalText = if (fullText.isNotBlank()) fullText else
+            event.text.joinToString(" ") { it.toString() }
+
+        if (finalText.isBlank()) return
 
         val parser = parsers.firstOrNull { packageName in it.supportedPackages } ?: return
 
         scope.launch {
-            val parsed = parser.parse(packageName, title, fullText) ?: return@launch
+            val parsed = parser.parse(packageName, title, finalText) ?: return@launch
 
             val db = com.financetracker.FinanceTrackerApp.instance.database
             val accountDao = db.paymentAccountDao()
@@ -50,16 +64,16 @@ class FinanceNotificationService : AccessibilityService() {
 
             val categoryId = classifier.classify(parsed.merchant)
 
-            val transaction = TransactionEntity(
+            val transaction = com.financetracker.domain.model.Transaction(
                 amount = parsed.amount,
-                type = "EXPENSE",
+                type = com.financetracker.domain.model.TransactionType.EXPENSE,
                 categoryId = categoryId,
                 accountId = account.id,
                 merchant = parsed.merchant,
                 date = parsed.payTime,
                 source = "notification",
             )
-            db.transactionDao().insert(transaction)
+            com.financetracker.di.AppModule.transactionRepository.add(transaction)
 
             showNotification(parsed)
         }

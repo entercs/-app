@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
         PaymentAccountEntity::class,
         ParsingRuleEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : androidx.room.RoomDatabase() {
@@ -40,9 +40,15 @@ abstract class AppDatabase : androidx.room.RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE payment_accounts ADD COLUMN balance REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, "finance_tracker.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .addCallback(SeedCallback())
                 .build()
         }

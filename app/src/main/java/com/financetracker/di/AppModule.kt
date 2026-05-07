@@ -10,7 +10,7 @@ import com.financetracker.data.repository.TransactionRepository
 object AppModule {
     private val db get() = FinanceTrackerApp.instance.database
 
-    val transactionRepository by lazy { TransactionRepository(db.transactionDao()) }
+    val transactionRepository by lazy { TransactionRepository(db.transactionDao(), db.paymentAccountDao()) }
     val categoryRepository by lazy { CategoryRepository(db.categoryDao()) }
     val paymentAccountRepository by lazy { PaymentAccountRepository(db.paymentAccountDao()) }
     val statisticsRepository by lazy {

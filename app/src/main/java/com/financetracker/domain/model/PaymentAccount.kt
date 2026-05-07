@@ -6,4 +6,5 @@ data class PaymentAccount(
     val type: String,
     val isEnabled: Boolean = true,
     val color: String = "#4CAF50",
+    val balance: Double = 0.0,
 )

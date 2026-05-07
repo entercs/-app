@@ -22,6 +22,8 @@ class PaymentAccountRepository(private val dao: PaymentAccountDao) {
 
     suspend fun count(): Int = dao.count()
 
+    suspend fun updateBalance(id: Long, balance: Double) = dao.updateBalance(id, balance)
+
     suspend fun seedIfEmpty() {
         if (dao.count() == 0) {
             listOf(
@@ -34,4 +36,4 @@ class PaymentAccountRepository(private val dao: PaymentAccountDao) {
     }
 }
 
-private fun PaymentAccountEntity.toDomain() = PaymentAccount(id, name, type, isEnabled, color)
+private fun PaymentAccountEntity.toDomain() = PaymentAccount(id, name, type, isEnabled, color, balance)

@@ -10,4 +10,5 @@ data class PaymentAccountEntity(
     val type: String, // "wechat", "alipay", "jd", "bank", or custom
     val isEnabled: Boolean = true,
     val color: String = "#4CAF50", // hex color for display
+    val balance: Double = 0.0, // current balance (initial + income - expense)
 )

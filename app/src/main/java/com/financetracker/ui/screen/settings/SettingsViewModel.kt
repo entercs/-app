@@ -11,7 +11,7 @@ import com.financetracker.data.preferences.AppPreferences
 import com.financetracker.data.repository.CategoryRepository
 import com.financetracker.data.repository.PaymentAccountRepository
 import com.financetracker.data.repository.TransactionRepository
-import com.financetracker.domain.model.Transaction
+import com.financetracker.domain.model.PaymentAccount
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +31,9 @@ class SettingsViewModel(
 
     val isNotificationEnabled: StateFlow<Boolean> =
         prefs.isNotificationEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val accounts: StateFlow<List<PaymentAccount>> =
+        accountRepo.getAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
     val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
@@ -65,6 +68,10 @@ class SettingsViewModel(
                 _exportState.value = ExportState.Error(e.message ?: "导出失败")
             }
         }
+    }
+
+    fun setBalance(accountId: Long, newBalance: Double) {
+        viewModelScope.launch { accountRepo.updateBalance(accountId, newBalance) }
     }
 
     fun clearExportState() {

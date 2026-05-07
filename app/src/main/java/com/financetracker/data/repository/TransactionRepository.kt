@@ -1,5 +1,6 @@
 package com.financetracker.data.repository
 
+import com.financetracker.data.db.dao.PaymentAccountDao
 import com.financetracker.data.db.dao.TransactionDao
 import com.financetracker.data.db.entity.TransactionEntity
 import com.financetracker.domain.model.Transaction
@@ -7,7 +8,10 @@ import com.financetracker.domain.model.TransactionType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class TransactionRepository(private val dao: TransactionDao) {
+class TransactionRepository(
+    private val dao: TransactionDao,
+    private val accountDao: PaymentAccountDao,
+) {
 
     fun getRecent(limit: Int = 10): Flow<List<Transaction>> =
         dao.getRecent(limit).mapToDomain()
@@ -21,14 +25,36 @@ class TransactionRepository(private val dao: TransactionDao) {
     suspend fun getById(id: Long): Transaction? =
         dao.getById(id)?.toDomain()
 
-    suspend fun add(transaction: Transaction): Long =
-        dao.insert(transaction.toEntity())
+    suspend fun add(transaction: Transaction): Long {
+        val id = dao.insert(transaction.toEntity())
+        updateAccountBalance(transaction.accountId, transaction.amount, transaction.type)
+        return id
+    }
 
-    suspend fun update(transaction: Transaction) =
+    suspend fun update(transaction: Transaction) {
+        val old = dao.getById(transaction.id) ?: return
         dao.update(transaction.toEntity())
+        // Reverse old effect
+        updateAccountBalance(old.accountId, -old.amount, TransactionType.valueOf(old.type))
+        // Apply new effect
+        updateAccountBalance(transaction.accountId, transaction.amount, transaction.type)
+    }
 
-    suspend fun delete(transaction: Transaction) =
+    suspend fun delete(transaction: Transaction) {
         dao.delete(transaction.toEntity())
+        // Reverse the transaction effect
+        val reversedType = if (transaction.type == TransactionType.EXPENSE) TransactionType.INCOME else TransactionType.EXPENSE
+        updateAccountBalance(transaction.accountId, transaction.amount, reversedType)
+    }
+
+    private suspend fun updateAccountBalance(accountId: Long, amount: Double, type: TransactionType) {
+        val account = accountDao.getById(accountId) ?: return
+        val newBalance = if (type == TransactionType.EXPENSE)
+            account.balance - amount
+        else
+            account.balance + amount
+        accountDao.updateBalance(accountId, newBalance)
+    }
 
     suspend fun getMonthlyTotal(
         type: TransactionType,

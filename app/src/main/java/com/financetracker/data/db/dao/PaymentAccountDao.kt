@@ -29,4 +29,7 @@ interface PaymentAccountDao {
 
     @Query("SELECT COUNT(*) FROM payment_accounts")
     suspend fun count(): Int
+
+    @Query("UPDATE payment_accounts SET balance = :balance WHERE id = :id")
+    suspend fun updateBalance(id: Long, balance: Double)
 }

@@ -38,6 +38,8 @@ import com.financetracker.di.AppModule
 import com.financetracker.ui.component.TransactionItem
 import com.financetracker.ui.theme.Green500
 import com.financetracker.ui.theme.Red500
+import com.financetracker.ui.theme.accountColor
+import com.financetracker.ui.theme.accountIcon
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,9 +106,51 @@ fun HomeScreen(
                         Text(monthLabel(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            val balance = totalIncome - totalExpense
+                            val balanceColor = if (balance >= 0) Green500 else Red500
                             SummaryItem("支出", totalExpense, Red500)
                             SummaryItem("收入", totalIncome, Green500)
-                            SummaryItem("结余", totalIncome - totalExpense, Green500)
+                            SummaryItem("结余", balance, balanceColor)
+                        }
+                    }
+                }
+            }
+
+            // Assets overview
+            item {
+                val totalAssets = accounts.sumOf { it.balance }
+                val assetsColor = if (totalAssets >= 0) Green500 else Red500
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("总资产", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            "¥${String.format("%.2f", totalAssets)}",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = assetsColor,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        accounts.forEach { acc ->
+                            val balColor = if (acc.balance >= 0) Green500 else Red500
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    "${accountIcon(acc.type)} ${acc.name}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    "¥${String.format("%.2f", acc.balance)}",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                    color = balColor,
+                                )
+                            }
                         }
                     }
                 }
