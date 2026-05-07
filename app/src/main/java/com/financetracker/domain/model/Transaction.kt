@@ -1,0 +1,13 @@
+package com.financetracker.domain.model
+
+data class Transaction(
+    val id: Long = 0,
+    val amount: Double,
+    val type: TransactionType,
+    val categoryId: Long,
+    val accountId: Long,
+    val merchant: String = "",
+    val note: String = "",
+    val date: Long,
+    val source: String = "manual",
+)
