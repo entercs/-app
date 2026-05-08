@@ -47,6 +47,11 @@ class SettingsViewModel(
 
     fun clearFeedback() { _feedback.value = null }
 
+    fun getNotificationLog(): List<com.financetracker.notification.NotificationLogEntry> =
+        com.financetracker.notification.NotificationLogger.getAll()
+
+    fun clearNotificationLog() = com.financetracker.notification.NotificationLogger.clear()
+
     fun seedCategories() {
         viewModelScope.launch {
             val before = categoryRepo.count()

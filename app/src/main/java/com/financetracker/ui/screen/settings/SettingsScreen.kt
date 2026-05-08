@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.financetracker.di.AppModule
 import com.financetracker.domain.model.Banks
@@ -124,6 +125,32 @@ fun SettingsScreen() {
                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }) {
                     Text("前往无障碍设置")
+                }
+            }
+
+            // Notification debug log
+            item {
+                val logEntries = remember { mutableStateOf(viewModel.getNotificationLog()) }
+                var expanded by remember { mutableStateOf(false) }
+                TextButton(onClick = {
+                    logEntries.value = viewModel.getNotificationLog()
+                    expanded = !expanded
+                }) {
+                    Text(if (expanded) "▼ 通知日志 (${logEntries.value.size})" else "▶ 通知日志 (${logEntries.value.size})")
+                }
+                if (expanded && logEntries.value.isNotEmpty()) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            logEntries.value.take(10).forEach { entry ->
+                                Text(entry.shortForm, fontSize = 10.sp, modifier = Modifier.padding(vertical = 1.dp))
+                            }
+                            TextButton(onClick = { viewModel.clearNotificationLog(); logEntries.value = emptyList() }) {
+                                Text("清空日志", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                } else if (expanded) {
+                    Text("暂无通知记录", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
                 }
             }
 

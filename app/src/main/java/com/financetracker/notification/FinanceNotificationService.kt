@@ -57,11 +57,19 @@ class FinanceNotificationService : AccessibilityService() {
 
         scope.launch {
             val parsed = parser.parse(packageName, title, finalText)
+            // Log all notification attempts
+            NotificationLogger.log(NotificationLogEntry(
+                timestamp = System.currentTimeMillis(),
+                packageName = packageName,
+                title = title,
+                text = finalText,
+                parsed = parsed != null,
+                parsedAmount = parsed?.amount,
+            ))
             if (parsed != null) {
                 recordTransaction(parsed)
                 showNotification("已自动记账", "${parsed.merchant} ¥${String.format("%.2f", parsed.amount)}")
             } else {
-                // Parsing failed — check if it's a payment notification that needs manual recording
                 val hasPayHint = listOf("支付", "交易", "付款", "账单").any { it in title || it in text }
                 if (hasPayHint) {
                     showReminderNotification(packageName)
@@ -80,6 +88,16 @@ class FinanceNotificationService : AccessibilityService() {
 
         scope.launch {
             val parsed = screenParser.parse(packageName, source)
+            // Log screen content attempts
+            val screenTexts = listNotNullTexts(source)
+            NotificationLogger.log(NotificationLogEntry(
+                timestamp = now,
+                packageName = packageName,
+                title = "[屏幕内容]",
+                text = screenTexts.take(5).joinToString(" | "),
+                parsed = parsed != null,
+                parsedAmount = parsed?.amount,
+            ))
             if (parsed != null) {
                 lastScreenCaptureTime = now
                 lastScreenCaptureHash = contentHash
