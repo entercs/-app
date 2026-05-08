@@ -33,7 +33,10 @@ interface TransactionDao {
 
     @Query("""
         SELECT * FROM transactions
-        WHERE (merchant LIKE '%' || :query || '%' OR note LIKE '%' || :query || '%')
+        WHERE (merchant LIKE '%' || :query || '%'
+            OR note LIKE '%' || :query || '%'
+            OR CAST(amount AS TEXT) LIKE '%' || :query || '%'
+            OR accountId IN (SELECT id FROM payment_accounts WHERE name LIKE '%' || :query || '%'))
         ORDER BY date DESC
     """)
     fun search(query: String): Flow<List<TransactionEntity>>

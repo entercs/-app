@@ -35,7 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.financetracker.di.AppModule
+import com.financetracker.ui.component.DateHeader
 import com.financetracker.ui.component.TransactionItem
+import com.financetracker.ui.component.groupTransactionsByDay
 import com.financetracker.ui.theme.Green500
 import com.financetracker.ui.theme.Red500
 import com.financetracker.ui.theme.accountColor
@@ -63,6 +65,10 @@ fun HomeScreen(
 
     val categoryMap = remember(categories) { categories.associateBy { it.id } }
     val accountMap = remember(accounts) { accounts.associateBy { it.id } }
+    val dailyGroups = remember(recentTransactions) { groupTransactionsByDay(recentTransactions) }
+    val flatItems = remember(dailyGroups) {
+        dailyGroups.flatMap { group -> listOf<Any>(group) + group.transactions }
+    }
 
     val totalExpense = remember(monthlyTransactions) {
         monthlyTransactions
@@ -168,13 +174,27 @@ fun HomeScreen(
                 }
             }
 
-            items(recentTransactions, key = { it.id }) { transaction ->
-                TransactionItem(
-                    transaction = transaction,
-                    category = categoryMap[transaction.categoryId],
-                    account = accountMap[transaction.accountId],
-                    onClick = { onTransactionClick(transaction.id) },
-                )
+            items(flatItems.size, key = { index ->
+                val item = flatItems[index]
+                when (item) {
+                    is com.financetracker.ui.component.DailyGroup -> "h_${item.dateLabel}"
+                    is com.financetracker.domain.model.Transaction -> "tx_${item.id}"
+                    else -> "unknown"
+                }
+            }) { index ->
+                when (val item = flatItems[index]) {
+                    is com.financetracker.ui.component.DailyGroup -> {
+                        DateHeader(item.dateLabel, item.totalExpense, item.totalIncome)
+                    }
+                    is com.financetracker.domain.model.Transaction -> {
+                        TransactionItem(
+                            transaction = item,
+                            category = categoryMap[item.categoryId],
+                            account = accountMap[item.accountId],
+                            onClick = { onTransactionClick(item.id) },
+                        )
+                    }
+                }
             }
 
             item { Spacer(modifier = Modifier.height(80.dp)) }

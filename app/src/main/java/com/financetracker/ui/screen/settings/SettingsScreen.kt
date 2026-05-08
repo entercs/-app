@@ -124,11 +124,14 @@ fun SettingsScreen() {
                                 Color(android.graphics.Color.parseColor(acc.color))
                             } catch (_: Exception) { Color.Gray }
                             var showDialog by remember { mutableStateOf(false) }
-                            var editText by remember { mutableStateOf(acc.balance.toString()) }
+                            var editText by remember { mutableStateOf(String.format("%.2f", acc.balance)) }
                             var showBankPicker by remember { mutableStateOf(false) }
 
                             Row(
-                                modifier = Modifier.fillMaxWidth().clickable { showDialog = true }.padding(12.dp),
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    editText = String.format("%.2f", acc.balance)
+                                    showDialog = true
+                                }.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(accountIcon(acc.type, acc.name), style = MaterialTheme.typography.titleMedium)
@@ -264,7 +267,7 @@ fun SettingsScreen() {
                 Text("关于", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("记账助手 v1.0.0", style = MaterialTheme.typography.bodyLarge)
+                        Text("记账助手 v1.5.0", style = MaterialTheme.typography.bodyLarge)
                         Text(
                             "自动监听支付通知，轻松管理个人财务",
                             style = MaterialTheme.typography.bodySmall,

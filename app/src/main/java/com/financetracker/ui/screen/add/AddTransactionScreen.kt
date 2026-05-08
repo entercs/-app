@@ -288,20 +288,28 @@ private fun CategoryChip(category: Category, isSelected: Boolean, onClick: () ->
 
 @Composable
 private fun AccountChip(account: PaymentAccount, isSelected: Boolean, onClick: () -> Unit) {
-    val bgColor = if (isSelected) Green500.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant
+    val accColor = try { Color(android.graphics.Color.parseColor(account.color)) } catch (_: Exception) { Green500 }
+    val bgColor = if (isSelected) accColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant
+    val borderColor = if (isSelected) accColor else null
     Card(
         modifier = Modifier.clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = bgColor),
-        border = if (isSelected) BorderStroke(1.5.dp, Green500) else null,
+        border = borderColor?.let { BorderStroke(1.5.dp, it) },
         shape = RoundedCornerShape(20.dp),
     ) {
-        Text(
-            account.name,
+        Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = if (isSelected) Green500 else MaterialTheme.colorScheme.onSurface,
-        )
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(com.financetracker.ui.theme.accountIcon(account.type, account.name))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                account.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                color = if (isSelected) accColor else MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
 
