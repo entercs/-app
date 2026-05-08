@@ -67,7 +67,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun AddTransactionScreen(editTransactionId: Long? = null, onNavigateBack: () -> Unit) {
+fun AddTransactionScreen(editTransactionId: Long? = null, refundTransactionId: Long? = null, onNavigateBack: () -> Unit) {
     val factory = remember {
         AddTransactionViewModel.Factory(
             AppModule.transactionRepository,
@@ -79,6 +79,9 @@ fun AddTransactionScreen(editTransactionId: Long? = null, onNavigateBack: () -> 
 
     LaunchedEffect(editTransactionId) {
         editTransactionId?.let { viewModel.loadTransaction(it) }
+    }
+    LaunchedEffect(refundTransactionId) {
+        refundTransactionId?.let { viewModel.loadRefund(it) }
     }
 
     val amountFocusRequester = remember { FocusRequester() }

@@ -16,6 +16,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -58,6 +59,7 @@ fun TransactionDetailScreen(
     transactionId: Long,
     onNavigateBack: () -> Unit,
     onEdit: (Long) -> Unit,
+    onRefund: ((Long) -> Unit)? = null,
 ) {
     val factory = remember {
         TransactionDetailViewModel.Factory(
@@ -125,6 +127,19 @@ fun TransactionDetailScreen(
                             fontWeight = FontWeight.Bold,
                             color = color,
                         )
+                    }
+                }
+            }
+
+            // Refund button (only for expenses)
+            if (t.type == TransactionType.EXPENSE && onRefund != null) {
+                item {
+                    OutlinedButton(
+                        onClick = { onRefund(t.id) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Green500),
+                    ) {
+                        Text("记录退款")
                     }
                 }
             }

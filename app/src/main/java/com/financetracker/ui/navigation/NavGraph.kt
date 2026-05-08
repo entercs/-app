@@ -36,11 +36,16 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         }
         composable(
             route = Screen.AddTransaction.route,
-            arguments = listOf(navArgument("editId") { type = NavType.LongType; defaultValue = -1L }),
+            arguments = listOf(
+                navArgument("editId") { type = NavType.LongType; defaultValue = -1L },
+                navArgument("refundId") { type = NavType.LongType; defaultValue = -1L },
+            ),
         ) { backStackEntry ->
             val editId = backStackEntry.arguments?.getLong("editId") ?: -1L
+            val refundId = backStackEntry.arguments?.getLong("refundId") ?: -1L
             AddTransactionScreen(
                 editTransactionId = if (editId > 0) editId else null,
+                refundTransactionId = if (refundId > 0) refundId else null,
                 onNavigateBack = { navController.popBackStack() },
             )
         }
@@ -53,6 +58,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
                 transactionId = transactionId,
                 onNavigateBack = { navController.popBackStack() },
                 onEdit = { id -> navController.navigate(Screen.addTransactionRoute(id)) },
+                onRefund = { id -> navController.navigate(Screen.addTransactionRoute(refundId = id)) },
             )
         }
     }

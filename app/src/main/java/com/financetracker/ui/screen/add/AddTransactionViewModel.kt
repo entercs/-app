@@ -75,6 +75,19 @@ class AddTransactionViewModel(
         }
     }
 
+    fun loadRefund(transactionId: Long) {
+        viewModelScope.launch {
+            val t = transactionRepo.getById(transactionId) ?: return@launch
+            _amount.value = t.amount.toBigDecimal().stripTrailingZeros().toPlainString()
+            _selectedType.value = TransactionType.INCOME
+            _selectedCategoryId.value = t.categoryId
+            _selectedAccountId.value = t.accountId
+            _merchant.value = "退款: ${t.merchant.ifBlank { "消费" }}"
+            _note.value = "退款关联 #${t.id}"
+            _date.value = System.currentTimeMillis()
+        }
+    }
+
     fun setAmount(value: String) { _amount.value = value }
     fun setType(type: TransactionType) {
         _selectedType.value = type

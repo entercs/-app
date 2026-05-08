@@ -19,8 +19,12 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     companion object {
         val bottomNavItems = listOf(Home, Statistics, Search, Settings)
 
-        fun addTransactionRoute(editId: Long? = null): String =
-            if (editId != null) "add_transaction?editId=$editId" else "add_transaction"
+        fun addTransactionRoute(editId: Long? = null, refundId: Long? = null): String {
+            val params = mutableListOf<String>()
+            editId?.let { params.add("editId=$it") }
+            refundId?.let { params.add("refundId=$it") }
+            return if (params.isEmpty()) "add_transaction" else "add_transaction?${params.joinToString("&")}"
+        }
 
         fun detailRoute(transactionId: Long): String =
             "transaction_detail/$transactionId"
