@@ -6,30 +6,34 @@ import com.financetracker.domain.model.ParsedNotification
 class ScreenContentParser {
 
     private val amountPatterns = listOf(
-        Regex("[¥￥](\\d+\\.?\\d*)"),
+        Regex("¥(\\d+\\.?\\d*)"),
+        Regex("￥(\\d+\\.?\\d*)"),
         Regex("(\\d+\\.?\\d*)\\s*元"),
-        Regex("金额[:：]?\\s*[¥￥]?(\\d+\\.?\\d*)"),
-    )
-    private val merchantPatterns = listOf(
-        Regex("收款方[:：]\\s*(.+)"),
-        Regex("商户[:：]\\s*(.+)"),
-        Regex("你在(.+?)有一笔"),
-        Regex("向(.+?)(?:付款|支付|转账)"),
-        Regex("(.+?)(?:收款|付款成功|支付成功)"),
     )
 
-    private val payKeywords = listOf("支付", "付款", "收款", "交易", "账单", "消费", "扣款")
+    // Must contain at least one of these to be considered a payment screen
+    private val paySuccessKeywords = listOf(
+        "支付成功", "付款成功", "交易成功", "付款结果", "支付结果",
+        "扣款成功", "消费成功", "付款完成", "支付完成", "交易完成",
+    )
 
-    /** Check if the text contains any payment-related keywords */
+    // Reject merchant names containing these garbage keywords
+    private val garbageKeywords = listOf(
+        "刷新", "搜索", "天气", "℃", "车险", "更多操作", "松开",
+        "首页", "我的", "扫一扫", "收付款", "余额", "理财",
+        "消息", "通知", "设置", "返回", "确认", "取消",
+    )
+
     fun hasPayKeywords(texts: List<String>): Boolean {
-        return texts.any { text -> payKeywords.any { kw -> kw in text } }
+        return texts.any { text -> paySuccessKeywords.any { kw -> kw in text } }
     }
 
-    /** Parse payment details from window content */
     fun parse(packageName: String, root: AccessibilityNodeInfo?): ParsedNotification? {
         if (root == null) return null
         val texts = collectTexts(root, maxNodes = 80)
         if (texts.isEmpty()) return null
+
+        // STRICT: must contain payment SUCCESS keywords (not just "支付")
         if (!hasPayKeywords(texts)) return null
 
         val combined = texts.joinToString(" ")
@@ -38,9 +42,49 @@ class ScreenContentParser {
             pattern.find(combined)?.groupValues?.get(1)?.toDoubleOrNull()
         } ?: return null
 
-        val merchant = merchantPatterns.firstNotNullOfOrNull { pattern ->
-            pattern.find(combined)?.groupValues?.get(1)?.trim()
-        } ?: ""
+        // STRICT: amount must be reasonable
+        if (amount <= 0.01 || amount > 100000) return null
+
+        // Extract merchant — try known patterns
+        var merchant = ""
+        val merchantPatterns = listOf(
+            Regex("收款方[:：]\\s*(.+)"),
+            Regex("商户[:：]\\s*(.+)"),
+            Regex("你在(.+?)有一笔"),
+            Regex("向(.+?)(?:付款|支付|转账)"),
+        )
+        for (p in merchantPatterns) {
+            val m = p.find(combined)?.groupValues?.get(1)?.trim()
+            if (m != null && m.length in 2..20) {
+                merchant = m
+                break
+            }
+        }
+
+        // Quality check: reject garbage merchants
+        if (merchant.isNotBlank() && garbageKeywords.any { it in merchant }) {
+            merchant = ""
+        }
+
+        // If no good merchant found, find lines with amount nearby
+        if (merchant.isBlank()) {
+            val amountIdx = combined.indexOf("${String.format("%.2f", amount)}")
+            if (amountIdx > 0) {
+                val before = combined.substring(0, amountIdx).trim()
+                val candidate = before.takeLast(30).trim()
+                if (candidate.isNotBlank() && candidate.length in 2..20 && garbageKeywords.none { it in candidate }) {
+                    merchant = candidate
+                }
+            }
+        }
+
+        if (merchant.isBlank()) {
+            merchant = when {
+                packageName.contains("Alipay") -> "支付宝支付"
+                packageName.contains("tencent") -> "微信支付"
+                else -> "支付"
+            }
+        }
 
         val accountType = when {
             packageName.contains("tencent.mm") -> "wechat"
@@ -49,55 +93,22 @@ class ScreenContentParser {
             else -> "bank"
         }
 
-        return ParsedNotification(
-            amount = amount,
-            merchant = merchant.take(30).ifBlank { "${appName(packageName)}支付" },
-            accountType = accountType,
-            payTime = System.currentTimeMillis(),
-        )
+        return ParsedNotification(amount, merchant, accountType, System.currentTimeMillis())
     }
 
-    private fun collectTexts(node: AccessibilityNodeInfo, maxNodes: Int, depth: Int = 0): List<String> {
+    private fun collectTexts(node: AccessibilityNodeInfo, maxNodes: Int): List<String> {
         val result = mutableListOf<String>()
-        var count = 0
-        collectRecursive(node, result, depth, maxNodes, count)
-        // Update count isn't easily mutable in recursion. Let's use a simpler approach.
+        collectRecursive(node, result, maxNodes)
         return result
     }
 
-    private fun collectRecursive(
-        node: AccessibilityNodeInfo?,
-        result: MutableList<String>,
-        depth: Int,
-        maxNodes: Int,
-        currentCount: Int,
-    ): Int {
-        if (node == null) return currentCount
-        if (result.size >= maxNodes) return currentCount
-
-        var count = currentCount
-        val text = node.text?.toString()?.trim()
-        if (!text.isNullOrBlank() && text.length > 1) {
-            result.add(text)
-            count++
-        }
-        val contentDesc = node.contentDescription?.toString()?.trim()
-        if (!contentDesc.isNullOrBlank() && contentDesc.length > 1 && contentDesc != text) {
-            result.add(contentDesc)
-            count++
-        }
-
+    private fun collectRecursive(node: AccessibilityNodeInfo?, result: MutableList<String>, max: Int) {
+        if (node == null || result.size >= max) return
+        node.text?.toString()?.trim()?.takeIf { it.length in 2..40 }?.let { result.add(it) }
+        node.contentDescription?.toString()?.trim()?.takeIf { it.length in 2..40 }?.let { result.add(it) }
         for (i in 0 until node.childCount) {
-            if (result.size >= maxNodes) break
-            count = collectRecursive(node.getChild(i), result, depth + 1, maxNodes, count)
+            if (result.size >= max) break
+            collectRecursive(node.getChild(i), result, max)
         }
-        return count
-    }
-
-    private fun appName(packageName: String) = when (packageName) {
-        "com.tencent.mm" -> "微信"
-        "com.eg.android.AlipayGphone" -> "支付宝"
-        "com.jingdong.app.mall" -> "京东"
-        else -> ""
     }
 }

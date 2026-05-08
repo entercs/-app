@@ -29,6 +29,9 @@ class FinanceNotificationService : AccessibilityService() {
     private var lastScreenCaptureTime = 0L
     private var lastScreenCaptureHash = 0
 
+    // Track last notification time per app: only capture screen content within 60s of a notification
+    private val lastNotificationTime = mutableMapOf<String, Long>()
+
     // Global dedup: prevent same amount from being recorded twice within 30s
     private val recentRecordedAmounts = mutableMapOf<Double, Long>()
 
@@ -37,7 +40,10 @@ class FinanceNotificationService : AccessibilityService() {
         val parser = parsers.firstOrNull { packageName in it.supportedPackages } ?: return
 
         when (event.eventType) {
-            AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> handleNotification(event, parser, packageName)
+            AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
+                lastNotificationTime[packageName] = System.currentTimeMillis()
+                handleNotification(event, parser, packageName)
+            }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> handleWindowContent(event, packageName)
         }
     }
@@ -79,8 +85,12 @@ class FinanceNotificationService : AccessibilityService() {
     }
 
     private fun handleWindowContent(event: AccessibilityEvent, packageName: String) {
-        // Deduplicate: ignore events within 2s with same content hash
+        // Time gate: only process screen content within 60s of a notification from same app
         val now = System.currentTimeMillis()
+        val lastNotifTime = lastNotificationTime[packageName] ?: return
+        if (now - lastNotifTime > 60_000) return
+
+        // Deduplicate: ignore events within 3s with same content hash
         val source = event.source
         val contentHash = listNotNullTexts(source).hashCode()
 
