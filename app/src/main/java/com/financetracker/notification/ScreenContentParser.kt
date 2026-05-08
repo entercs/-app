@@ -43,9 +43,9 @@ class ScreenContentParser {
         } ?: ""
 
         val accountType = when {
-            packageName == "com.tencent.mm" -> "wechat"
-            packageName == "com.eg.android.AlipayGphone" -> "alipay"
-            packageName == "com.jingdong.app.mall" -> "jd"
+            packageName.contains("tencent.mm") -> "wechat"
+            packageName.contains("Alipay") || packageName.contains("alipay") -> "alipay"
+            packageName.contains("jingdong") -> "jd"
             else -> "bank"
         }
 

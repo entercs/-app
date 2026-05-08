@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -40,8 +41,8 @@ import com.financetracker.ui.component.TransactionItem
 import com.financetracker.ui.component.groupTransactionsByDay
 import com.financetracker.ui.theme.Green500
 import com.financetracker.ui.theme.Red500
+import com.financetracker.ui.theme.AccountIconDisplay
 import com.financetracker.ui.theme.accountColor
-import com.financetracker.ui.theme.accountIcon
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -146,11 +147,15 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Text(
-                                    "${accountIcon(acc.type, acc.name)} ${acc.name}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    AccountIconDisplay(type = acc.type, accountName = acc.name, size = 18.dp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        acc.name,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                                 Text(
                                     "¥${String.format("%.2f", acc.balance)}",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),

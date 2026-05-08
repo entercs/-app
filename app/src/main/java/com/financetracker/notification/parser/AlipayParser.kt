@@ -3,7 +3,12 @@ package com.financetracker.notification.parser
 import com.financetracker.domain.model.ParsedNotification
 
 class AlipayParser : NotificationParser {
-    override val supportedPackages = listOf("com.eg.android.AlipayGphone")
+    override val supportedPackages = listOf(
+        "com.eg.android.AlipayGphone",
+        "com.eg.android.AlipayGphoneRC",
+        "com.eg.android.AlipayGphoneGlobal",
+        "hk.alipay.wallet",
+    )
 
     // 匹配 "12.50元" 或 "12元" 格式
     private val amountYuanPattern = Regex("(\\d+\\.?\\d*)\\s*元")
