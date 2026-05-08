@@ -38,6 +38,7 @@ fun TransactionItem(
     transaction: Transaction,
     category: Category?,
     account: PaymentAccount?,
+    toAccount: PaymentAccount? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -51,14 +52,16 @@ fun TransactionItem(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
+        val isTransfer = transaction.type == TransactionType.TRANSFER
+
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Category icon
             CategoryLogo(
-                categoryName = category?.name ?: "",
-                categoryIcon = category?.icon ?: "📂",
+                categoryName = if (isTransfer) "" else (category?.name ?: ""),
+                categoryIcon = if (isTransfer) "🔄" else (category?.icon ?: "📂"),
                 size = 28.dp,
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -66,8 +69,9 @@ fun TransactionItem(
             // Info
             Column(modifier = Modifier.weight(1f)) {
                 // Category name as primary
+                val titleText = if (isTransfer) "转账" else (category?.name ?: "未知分类")
                 Text(
-                    text = category?.name ?: "未知分类",
+                    text = titleText,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 )
                 Spacer(modifier = Modifier.height(2.dp))
@@ -97,6 +101,10 @@ fun TransactionItem(
                         color = bgColor,
                         fontWeight = FontWeight.Medium,
                     )
+                    if (isTransfer && toAccount != null) {
+                        Text(" → ", style = MaterialTheme.typography.bodySmall, color = Color(0xFF757575))
+                        Text(toAccount.name, style = MaterialTheme.typography.bodySmall, color = Color(0xFF757575), fontWeight = FontWeight.Medium)
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = formatDate(transaction.date),
@@ -107,8 +115,12 @@ fun TransactionItem(
             }
 
             // Amount
-            val prefix = if (transaction.type == TransactionType.INCOME) "+" else "-"
-            val color = if (transaction.type == TransactionType.INCOME) Green500 else Red500
+            val prefix = when {
+                isTransfer -> "↔"
+                transaction.type == TransactionType.INCOME -> "+"
+                else -> "-"
+            }
+            val color = if (isTransfer) Color(0xFF757575) else if (transaction.type == TransactionType.INCOME) Green500 else Red500
             Text(
                 text = "$prefix¥${String.format("%.2f", transaction.amount)}",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),

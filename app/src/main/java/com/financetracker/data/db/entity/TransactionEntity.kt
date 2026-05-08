@@ -30,9 +30,10 @@ import androidx.room.PrimaryKey
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val amount: Double,
-    val type: String, // "INCOME" or "EXPENSE"
+    val type: String, // "INCOME", "EXPENSE", or "TRANSFER"
     val categoryId: Long,
     val accountId: Long,
+    val transferToAccountId: Long? = null, // non-null when type=TRANSFER
     val merchant: String = "",
     val note: String = "",
     val date: Long, // epoch millis

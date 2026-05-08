@@ -44,6 +44,9 @@ class AddTransactionViewModel(
     private val _selectedAccountId = MutableStateFlow(-1L)
     val selectedAccountId: StateFlow<Long> = _selectedAccountId.asStateFlow()
 
+    private val _transferToAccountId = MutableStateFlow(-1L)
+    val transferToAccountId: StateFlow<Long> = _transferToAccountId.asStateFlow()
+
     private val _merchant = MutableStateFlow("")
     val merchant: StateFlow<String> = _merchant.asStateFlow()
 
@@ -79,6 +82,7 @@ class AddTransactionViewModel(
     }
     fun setCategoryId(id: Long) { _selectedCategoryId.value = id }
     fun setAccountId(id: Long) { _selectedAccountId.value = id }
+    fun setTransferToAccountId(id: Long) { _transferToAccountId.value = id }
     fun setMerchant(value: String) { _merchant.value = value }
     fun setNote(value: String) { _note.value = value }
     fun setDate(value: Long) { _date.value = value }
@@ -86,15 +90,19 @@ class AddTransactionViewModel(
     fun save() {
         val amt = _amount.value.toDoubleOrNull() ?: return
         if (amt <= 0) return
-        if (_selectedCategoryId.value <= 0) return
         if (_selectedAccountId.value <= 0) return
+        val isTransfer = _selectedType.value == TransactionType.TRANSFER
+        if (!isTransfer && _selectedCategoryId.value <= 0) return
+        if (isTransfer && _transferToAccountId.value <= 0) return
+        if (isTransfer && _transferToAccountId.value == _selectedAccountId.value) return
 
         val transaction = Transaction(
             id = editId ?: 0,
             amount = amt,
             type = _selectedType.value,
-            categoryId = _selectedCategoryId.value,
+            categoryId = if (isTransfer) -1L else _selectedCategoryId.value,
             accountId = _selectedAccountId.value,
+            transferToAccountId = if (isTransfer) _transferToAccountId.value else null,
             merchant = _merchant.value,
             note = _note.value,
             date = _date.value,

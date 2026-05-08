@@ -88,6 +88,7 @@ fun AddTransactionScreen(editTransactionId: Long? = null, onNavigateBack: () -> 
     val selectedType by viewModel.selectedType.collectAsState()
     val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
     val selectedAccountId by viewModel.selectedAccountId.collectAsState()
+    val transferToAccountId by viewModel.transferToAccountId.collectAsState()
     val merchant by viewModel.merchant.collectAsState()
     val note by viewModel.note.collectAsState()
     val date by viewModel.date.collectAsState()
@@ -140,11 +141,10 @@ fun AddTransactionScreen(editTransactionId: Long? = null, onNavigateBack: () -> 
             // Type toggle
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    listOf(TransactionType.EXPENSE to "支出", TransactionType.INCOME to "收入").forEach { (type, label) ->
+                    listOf(TransactionType.EXPENSE to "支出", TransactionType.INCOME to "收入", TransactionType.TRANSFER to "转账").forEach { (type, label) ->
                         val isSelected = selectedType == type
-                        val bgColor = if (isSelected) {
-                            if (type == TransactionType.EXPENSE) Red500 else Green500
-                        } else Color.Transparent
+                        val typeColor = when (type) { TransactionType.EXPENSE -> Red500; TransactionType.INCOME -> Green500; else -> Color(0xFF757575) }
+                        val bgColor = if (isSelected) typeColor else Color.Transparent
                         val textColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
 
                         Card(
@@ -164,14 +164,16 @@ fun AddTransactionScreen(editTransactionId: Long? = null, onNavigateBack: () -> 
                 }
             }
 
-            // Category selector
-            item {
-                Text("选择分类", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    categories.forEach { cat ->
-                        CategoryChip(cat, isSelected = selectedCategoryId == cat.id) {
-                            viewModel.setCategoryId(cat.id)
+            // Category selector (hidden for transfers)
+            if (selectedType != TransactionType.TRANSFER) {
+                item {
+                    Text("选择分类", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        categories.forEach { cat ->
+                            CategoryChip(cat, isSelected = selectedCategoryId == cat.id) {
+                                viewModel.setCategoryId(cat.id)
+                            }
                         }
                     }
                 }
@@ -179,12 +181,27 @@ fun AddTransactionScreen(editTransactionId: Long? = null, onNavigateBack: () -> 
 
             // Account selector
             item {
-                Text("支付账户", style = MaterialTheme.typography.titleMedium)
+                Text(if (selectedType == TransactionType.TRANSFER) "转出账户" else "支付账户", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     accounts.forEach { account ->
                         AccountChip(account, isSelected = selectedAccountId == account.id) {
                             viewModel.setAccountId(account.id)
+                        }
+                    }
+                }
+            }
+
+            // Transfer-to account
+            if (selectedType == TransactionType.TRANSFER) {
+                item {
+                    Text("转入账户", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        accounts.filter { it.id != selectedAccountId }.forEach { account ->
+                            AccountChip(account, isSelected = transferToAccountId == account.id) {
+                                viewModel.setTransferToAccountId(account.id)
+                            }
                         }
                     }
                 }
@@ -235,7 +252,9 @@ fun AddTransactionScreen(editTransactionId: Long? = null, onNavigateBack: () -> 
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Green500),
                     enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0
-                            && selectedCategoryId > 0 && selectedAccountId > 0,
+                            && selectedAccountId > 0
+                            && (selectedType == TransactionType.TRANSFER && transferToAccountId > 0 && transferToAccountId != selectedAccountId
+                                || selectedType != TransactionType.TRANSFER && selectedCategoryId > 0),
                 ) {
                     Text(if (editTransactionId != null) "更新" else "保存", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }

@@ -27,7 +27,15 @@ class TransactionRepository(
 
     suspend fun add(transaction: Transaction): Long {
         val id = dao.insert(transaction.toEntity())
-        updateAccountBalance(transaction.accountId, transaction.amount, transaction.type)
+        if (transaction.type == TransactionType.TRANSFER) {
+            // Transfer: source -= amount, dest += amount
+            updateAccountBalance(transaction.accountId, transaction.amount, TransactionType.EXPENSE)
+            transaction.transferToAccountId?.let { destId ->
+                updateAccountBalance(destId, transaction.amount, TransactionType.INCOME)
+            }
+        } else {
+            updateAccountBalance(transaction.accountId, transaction.amount, transaction.type)
+        }
         return id
     }
 
@@ -35,16 +43,31 @@ class TransactionRepository(
         val old = dao.getById(transaction.id) ?: return
         dao.update(transaction.toEntity())
         // Reverse old effect
-        updateAccountBalance(old.accountId, -old.amount, TransactionType.valueOf(old.type))
+        if (TransactionType.valueOf(old.type) == TransactionType.TRANSFER) {
+            updateAccountBalance(old.accountId, -old.amount, TransactionType.EXPENSE)
+            old.transferToAccountId?.let { updateAccountBalance(it, -old.amount, TransactionType.INCOME) }
+        } else {
+            updateAccountBalance(old.accountId, -old.amount, TransactionType.valueOf(old.type))
+        }
         // Apply new effect
-        updateAccountBalance(transaction.accountId, transaction.amount, transaction.type)
+        if (transaction.type == TransactionType.TRANSFER) {
+            updateAccountBalance(transaction.accountId, transaction.amount, TransactionType.EXPENSE)
+            transaction.transferToAccountId?.let { updateAccountBalance(it, transaction.amount, TransactionType.INCOME) }
+        } else {
+            updateAccountBalance(transaction.accountId, transaction.amount, transaction.type)
+        }
     }
 
     suspend fun delete(transaction: Transaction) {
         dao.delete(transaction.toEntity())
-        // Reverse the transaction effect
-        val reversedType = if (transaction.type == TransactionType.EXPENSE) TransactionType.INCOME else TransactionType.EXPENSE
-        updateAccountBalance(transaction.accountId, transaction.amount, reversedType)
+        if (transaction.type == TransactionType.TRANSFER) {
+            // Reverse: source += amount, dest -= amount
+            updateAccountBalance(transaction.accountId, transaction.amount, TransactionType.INCOME)
+            transaction.transferToAccountId?.let { updateAccountBalance(it, transaction.amount, TransactionType.EXPENSE) }
+        } else {
+            val reversedType = if (transaction.type == TransactionType.EXPENSE) TransactionType.INCOME else TransactionType.EXPENSE
+            updateAccountBalance(transaction.accountId, transaction.amount, reversedType)
+        }
     }
 
     private suspend fun updateAccountBalance(accountId: Long, amount: Double, type: TransactionType) {
@@ -70,25 +93,15 @@ class TransactionRepository(
 }
 
 private fun TransactionEntity.toDomain() = Transaction(
-    id = id,
-    amount = amount,
-    type = TransactionType.valueOf(type),
-    categoryId = categoryId,
-    accountId = accountId,
-    merchant = merchant,
-    note = note,
-    date = date,
-    source = source,
+    id = id, amount = amount, type = TransactionType.valueOf(type),
+    categoryId = categoryId, accountId = accountId,
+    transferToAccountId = transferToAccountId,
+    merchant = merchant, note = note, date = date, source = source,
 )
 
 private fun Transaction.toEntity() = TransactionEntity(
-    id = id,
-    amount = amount,
-    type = type.name,
-    categoryId = categoryId,
-    accountId = accountId,
-    merchant = merchant,
-    note = note,
-    date = date,
-    source = source,
+    id = id, amount = amount, type = type.name,
+    categoryId = categoryId, accountId = accountId,
+    transferToAccountId = transferToAccountId,
+    merchant = merchant, note = note, date = date, source = source,
 )

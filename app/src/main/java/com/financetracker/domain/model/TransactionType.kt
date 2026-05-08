@@ -1,3 +1,3 @@
 package com.financetracker.domain.model
 
-enum class TransactionType { INCOME, EXPENSE }
+enum class TransactionType { INCOME, EXPENSE, TRANSFER }

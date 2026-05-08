@@ -196,6 +196,7 @@ fun HomeScreen(
                             transaction = item,
                             category = categoryMap[item.categoryId],
                             account = accountMap[item.accountId],
+                            toAccount = item.transferToAccountId?.let { accountMap[it] },
                             onClick = { onTransactionClick(item.id) },
                         )
                     }

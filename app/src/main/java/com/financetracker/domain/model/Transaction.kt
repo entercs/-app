@@ -6,6 +6,7 @@ data class Transaction(
     val type: TransactionType,
     val categoryId: Long,
     val accountId: Long,
+    val transferToAccountId: Long? = null,
     val merchant: String = "",
     val note: String = "",
     val date: Long,
