@@ -41,6 +41,8 @@ fun StatisticsScreen() {
     val categorySummaries by viewModel.categorySummaries.collectAsState()
     val prevExpenseTotal by viewModel.prevExpenseTotal.collectAsState()
     val prevIncomeTotal by viewModel.prevIncomeTotal.collectAsState()
+    val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
+    val yearlyTotalExpense by viewModel.yearlyTotalExpense.collectAsState()
     val canGoNext by viewModel.canGoNext.collectAsState()
     val startDate by viewModel.startDate.collectAsState()
     val endDate by viewModel.endDate.collectAsState()
@@ -175,6 +177,38 @@ fun StatisticsScreen() {
                             )
                         }
                         PieChart(slices = slices)
+                    }
+                }
+            }
+
+            // Yearly report (monthly bars)
+            if (period == StatPeriod.YEAR) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("月度趋势", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("年度总支出 ¥${String.format("%.2f", yearlyTotalExpense)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            if (monthlyExpenses.isNotEmpty()) {
+                                val maxM = monthlyExpenses.max().toFloat().coerceAtLeast(1f)
+                                val months = listOf("1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月")
+                                Row(modifier = Modifier.fillMaxWidth().height(100.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    monthlyExpenses.forEachIndexed { i, v ->
+                                        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                                                val h = (v / maxM).toFloat().coerceAtLeast(0.03f)
+                                                Canvas(modifier = Modifier.fillMaxWidth().fillMaxHeight(h)) {
+                                                    drawRoundRect(if (v > 0) Red500 else Color.LightGray, cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f))
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(months[i], fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

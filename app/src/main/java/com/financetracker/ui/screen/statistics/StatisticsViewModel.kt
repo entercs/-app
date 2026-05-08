@@ -55,6 +55,13 @@ class StatisticsViewModel(
     private val _prevCategorySummaries = MutableStateFlow<List<CategorySummary>>(emptyList())
     val prevCategorySummaries: StateFlow<List<CategorySummary>> = _prevCategorySummaries.asStateFlow()
 
+    // Yearly data
+    private val _monthlyExpenses = MutableStateFlow<List<Double>>(emptyList())
+    val monthlyExpenses: StateFlow<List<Double>> = _monthlyExpenses.asStateFlow()
+
+    private val _yearlyTotalExpense = MutableStateFlow(0.0)
+    val yearlyTotalExpense: StateFlow<Double> = _yearlyTotalExpense.asStateFlow()
+
     // Header display
     private val _headerText = MutableStateFlow("")
     val headerText: StateFlow<String> = _headerText.asStateFlow()
@@ -173,6 +180,27 @@ class StatisticsViewModel(
         _prevExpenseTotal.value = statisticsRepo.getMonthlyExpenseTotal(prevStart, prevEnd)
         _prevIncomeTotal.value = statisticsRepo.getMonthlyIncomeTotal(prevStart, prevEnd)
         _prevCategorySummaries.value = statisticsRepo.getCategorySummaries(prevStart, prevEnd)
+
+        // Yearly breakdown
+        if (_period.value == StatPeriod.YEAR) {
+            val cal = java.util.Calendar.getInstance()
+            cal.timeInMillis = start
+            val yearExpenses = mutableListOf<Double>()
+            var totalY = 0.0
+            for (month in 0..11) {
+                cal.set(java.util.Calendar.MONTH, month)
+                cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
+                cal.set(java.util.Calendar.HOUR_OF_DAY, 0); cal.set(java.util.Calendar.MINUTE, 0); cal.set(java.util.Calendar.SECOND, 0)
+                val ms = cal.timeInMillis
+                cal.add(java.util.Calendar.MONTH, 1)
+                val me = cal.timeInMillis
+                val mTotal = statisticsRepo.getMonthlyExpenseTotal(ms, minOf(me, System.currentTimeMillis()))
+                yearExpenses.add(mTotal)
+                totalY += mTotal
+            }
+            _monthlyExpenses.value = yearExpenses
+            _yearlyTotalExpense.value = totalY
+        }
     }
 
     class Factory(
