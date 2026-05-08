@@ -1,5 +1,6 @@
 package com.financetracker.ui.screen.statistics
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,6 +39,8 @@ fun StatisticsScreen() {
     val expenseTotal by viewModel.expenseTotal.collectAsState()
     val incomeTotal by viewModel.incomeTotal.collectAsState()
     val categorySummaries by viewModel.categorySummaries.collectAsState()
+    val prevExpenseTotal by viewModel.prevExpenseTotal.collectAsState()
+    val prevIncomeTotal by viewModel.prevIncomeTotal.collectAsState()
     val canGoNext by viewModel.canGoNext.collectAsState()
     val startDate by viewModel.startDate.collectAsState()
     val endDate by viewModel.endDate.collectAsState()
@@ -112,6 +115,47 @@ fun StatisticsScreen() {
                             Text("收入", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text("¥${String.format("%.2f", incomeTotal)}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Green500)
+                        }
+                    }
+                }
+            }
+
+            // Comparison
+            if (prevExpenseTotal > 0) {
+                item {
+                    val diff = expenseTotal - prevExpenseTotal
+                    val pct = if (prevExpenseTotal > 0) (diff / prevExpenseTotal * 100) else 0.0
+                    val isUp = diff > 0
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = (if (isUp) Red500 else Green500).copy(alpha = 0.08f))) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("环比对比", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("上期支出 ¥${String.format("%.2f", prevExpenseTotal)}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("本期支出 ¥${String.format("%.2f", expenseTotal)}", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            // Simple bar comparison
+                            val maxVal = maxOf(expenseTotal, prevExpenseTotal).toFloat().coerceAtLeast(1f)
+                            val prevW = (prevExpenseTotal / maxVal).toFloat().coerceAtLeast(0.05f)
+                            val currW = (expenseTotal / maxVal).toFloat().coerceAtLeast(0.05f)
+                            Row(modifier = Modifier.fillMaxWidth().height(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.weight(prevW).fillMaxHeight().padding(end = 2.dp)) {
+                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                        drawRoundRect(Color.Gray.copy(alpha = 0.4f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f))
+                                    }
+                                }
+                                Box(modifier = Modifier.weight(currW).fillMaxHeight().padding(start = 2.dp)) {
+                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                        drawRoundRect(if (isUp) Red500 else Green500, cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f))
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                if (isUp) "比上期多花 ${String.format("%.1f", pct)}%" else "比上期少花 ${String.format("%.1f", kotlin.math.abs(pct))}%",
+                                fontSize = 12.sp, color = if (isUp) Red500 else Green500, fontWeight = FontWeight.Medium,
+                            )
                         }
                     }
                 }

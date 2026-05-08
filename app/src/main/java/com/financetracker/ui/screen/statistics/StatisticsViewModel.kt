@@ -45,6 +45,16 @@ class StatisticsViewModel(
     private val _categorySummaries = MutableStateFlow<List<CategorySummary>>(emptyList())
     val categorySummaries: StateFlow<List<CategorySummary>> = _categorySummaries.asStateFlow()
 
+    // Comparison data
+    private val _prevExpenseTotal = MutableStateFlow(0.0)
+    val prevExpenseTotal: StateFlow<Double> = _prevExpenseTotal.asStateFlow()
+
+    private val _prevIncomeTotal = MutableStateFlow(0.0)
+    val prevIncomeTotal: StateFlow<Double> = _prevIncomeTotal.asStateFlow()
+
+    private val _prevCategorySummaries = MutableStateFlow<List<CategorySummary>>(emptyList())
+    val prevCategorySummaries: StateFlow<List<CategorySummary>> = _prevCategorySummaries.asStateFlow()
+
     // Header display
     private val _headerText = MutableStateFlow("")
     val headerText: StateFlow<String> = _headerText.asStateFlow()
@@ -155,6 +165,14 @@ class StatisticsViewModel(
         _expenseTotal.value = statisticsRepo.getMonthlyExpenseTotal(start, end)
         _incomeTotal.value = statisticsRepo.getMonthlyIncomeTotal(start, end)
         _categorySummaries.value = statisticsRepo.getCategorySummaries(start, end)
+
+        // Previous period
+        val duration = end - start
+        val prevStart = start - duration
+        val prevEnd = start
+        _prevExpenseTotal.value = statisticsRepo.getMonthlyExpenseTotal(prevStart, prevEnd)
+        _prevIncomeTotal.value = statisticsRepo.getMonthlyIncomeTotal(prevStart, prevEnd)
+        _prevCategorySummaries.value = statisticsRepo.getCategorySummaries(prevStart, prevEnd)
     }
 
     class Factory(
