@@ -9,6 +9,7 @@ data class Transaction(
     val transferToAccountId: Long? = null,
     val merchant: String = "",
     val note: String = "",
+    val reimbursable: Boolean = false,
     val date: Long,
     val source: String = "manual",
 )

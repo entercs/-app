@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -92,6 +94,7 @@ fun AddTransactionScreen(editTransactionId: Long? = null, refundTransactionId: L
     val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
     val selectedAccountId by viewModel.selectedAccountId.collectAsState()
     val transferToAccountId by viewModel.transferToAccountId.collectAsState()
+    val reimbursable by viewModel.reimbursable.collectAsState()
     val merchant by viewModel.merchant.collectAsState()
     val note by viewModel.note.collectAsState()
     val date by viewModel.date.collectAsState()
@@ -246,6 +249,31 @@ fun AddTransactionScreen(editTransactionId: Long? = null, refundTransactionId: L
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
+            }
+
+            // Note templates
+            item {
+                val templates = listOf("午餐", "晚餐", "通勤", "咖啡", "超市", "房租", "话费", "快递")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    templates.forEach { tpl ->
+                        TextButton(onClick = { viewModel.setNote(tpl) }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                            Text(tpl, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            // Reimbursable toggle
+            if (selectedType == TransactionType.EXPENSE) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { viewModel.setReimbursable(!reimbursable) }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("可报销", modifier = Modifier.weight(1f))
+                        Switch(checked = reimbursable, onCheckedChange = { viewModel.setReimbursable(it) })
+                    }
+                }
             }
 
             // Save button

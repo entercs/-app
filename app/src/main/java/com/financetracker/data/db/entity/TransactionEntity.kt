@@ -36,6 +36,7 @@ data class TransactionEntity(
     val transferToAccountId: Long? = null, // non-null when type=TRANSFER
     val merchant: String = "",
     val note: String = "",
+    val reimbursable: Boolean = false,
     val date: Long, // epoch millis
     val source: String = "manual",
 )

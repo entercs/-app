@@ -56,6 +56,9 @@ class AddTransactionViewModel(
     private val _date = MutableStateFlow(System.currentTimeMillis())
     val date: StateFlow<Long> = _date.asStateFlow()
 
+    private val _reimbursable = MutableStateFlow(false)
+    val reimbursable: StateFlow<Boolean> = _reimbursable.asStateFlow()
+
     private val _saved = MutableStateFlow(false)
     val saved: StateFlow<Boolean> = _saved.asStateFlow()
 
@@ -98,6 +101,7 @@ class AddTransactionViewModel(
     fun setTransferToAccountId(id: Long) { _transferToAccountId.value = id }
     fun setMerchant(value: String) { _merchant.value = value }
     fun setNote(value: String) { _note.value = value }
+    fun setReimbursable(value: Boolean) { _reimbursable.value = value }
     fun setDate(value: Long) { _date.value = value }
 
     fun save() {
@@ -118,6 +122,7 @@ class AddTransactionViewModel(
             transferToAccountId = if (isTransfer) _transferToAccountId.value else null,
             merchant = _merchant.value,
             note = _note.value,
+            reimbursable = _reimbursable.value,
             date = _date.value,
             source = "manual",
         )

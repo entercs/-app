@@ -96,12 +96,12 @@ private fun TransactionEntity.toDomain() = Transaction(
     id = id, amount = amount, type = TransactionType.valueOf(type),
     categoryId = categoryId, accountId = accountId,
     transferToAccountId = transferToAccountId,
-    merchant = merchant, note = note, date = date, source = source,
+    merchant = merchant, note = note, reimbursable = reimbursable, date = date, source = source,
 )
 
 private fun Transaction.toEntity() = TransactionEntity(
     id = id, amount = amount, type = type.name,
     categoryId = categoryId, accountId = accountId,
     transferToAccountId = transferToAccountId,
-    merchant = merchant, note = note, date = date, source = source,
+    merchant = merchant, note = note, reimbursable = reimbursable, date = date, source = source,
 )
