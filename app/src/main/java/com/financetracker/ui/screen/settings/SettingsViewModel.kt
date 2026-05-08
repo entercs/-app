@@ -78,6 +78,10 @@ class SettingsViewModel(
         viewModelScope.launch { accountRepo.updateNameAndColor(accountId, name, color) }
     }
 
+    fun createAccount(name: String, type: String, color: String, balance: Double) {
+        viewModelScope.launch { accountRepo.create(name, type, color, balance) }
+    }
+
     fun clearExportState() {
         _exportState.value = ExportState.Idle
     }

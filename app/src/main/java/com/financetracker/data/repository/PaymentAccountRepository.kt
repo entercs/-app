@@ -26,12 +26,15 @@ class PaymentAccountRepository(private val dao: PaymentAccountDao) {
 
     suspend fun updateNameAndColor(id: Long, name: String, color: String) = dao.updateNameAndColor(id, name, color)
 
+    suspend fun create(name: String, type: String, color: String, balance: Double): Long =
+        dao.insert(PaymentAccountEntity(name = name, type = type, color = color, balance = balance))
+
     suspend fun seedIfEmpty() {
         if (dao.count() == 0) {
             listOf(
                 PaymentAccountEntity(1, "微信支付", "wechat", true, "#07C160"),
                 PaymentAccountEntity(2, "支付宝", "alipay", true, "#1677FF"),
-                PaymentAccountEntity(3, "京东白条", "jd", true, "#E3312C"),
+                PaymentAccountEntity(3, "京东", "jd", true, "#E3312C"),
                 PaymentAccountEntity(4, "银行卡", "bank", true, "#F5A623"),
             ).forEach { dao.insert(it) }
         }

@@ -81,7 +81,11 @@ fun TransactionItem(
 
                 // Account badge
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(accountIcon(account?.type ?: "", account?.name ?: ""), fontSize = MaterialTheme.typography.bodySmall.fontSize)
+                    com.financetracker.ui.theme.AccountIconDisplay(
+                        type = account?.type ?: "",
+                        accountName = account?.name ?: "",
+                        size = 18.dp,
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = account?.name ?: "未知账户",

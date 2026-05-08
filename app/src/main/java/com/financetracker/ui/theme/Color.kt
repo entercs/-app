@@ -1,6 +1,9 @@
 package com.financetracker.ui.theme
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.financetracker.domain.model.Banks
 
 val Green500 = Color(0xFF4CAF50)
@@ -44,6 +47,11 @@ fun accountIcon(type: String, accountName: String = ""): String = when (type) {
         bank?.icon ?: "🏦"
     }
     else -> "💳"
+}
+
+@Composable
+fun AccountIconDisplay(type: String, accountName: String = "", size: Dp = 22.dp) {
+    com.financetracker.ui.component.AccountLogo(type = type, accountName = accountName, size = size)
 }
 
 val PieChartColors = listOf(

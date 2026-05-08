@@ -44,9 +44,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.financetracker.di.AppModule
 import com.financetracker.domain.model.Banks
+import com.financetracker.ui.theme.AccountIconDisplay
 import com.financetracker.ui.theme.Green500
 import com.financetracker.ui.theme.Red500
-import com.financetracker.ui.theme.accountIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -134,7 +134,7 @@ fun SettingsScreen() {
                                 }.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(accountIcon(acc.type, acc.name), style = MaterialTheme.typography.titleMedium)
+                                AccountIconDisplay(type = acc.type, accountName = acc.name, size = 28.dp)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(acc.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                                 Text(
@@ -207,6 +207,92 @@ fun SettingsScreen() {
                             }
 
                             if (i < accounts.size - 1) HorizontalDivider()
+                        }
+                        // Add account button
+                        var showCreate by remember { mutableStateOf(false) }
+                        var createType by remember { mutableStateOf("bank") }
+                        var createName by remember { mutableStateOf("") }
+                        var createColor by remember { mutableStateOf("#F5A623") }
+                        var createBalance by remember { mutableStateOf("") }
+
+                        TextButton(
+                            onClick = { showCreate = true; createName = ""; createBalance = "" },
+                            modifier = Modifier.fillMaxWidth().padding(4.dp),
+                        ) {
+                            Text("+ 添加账户")
+                        }
+
+                        if (showCreate) {
+                            AlertDialog(
+                                onDismissRequest = { showCreate = false },
+                                title = { Text("添加账户") },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        // Type selector
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            listOf("wechat" to "微信", "alipay" to "支付宝", "jd" to "京东", "bank" to "银行卡").forEach { (t, l) ->
+                                                val sel = createType == t
+                                                TextButton(onClick = {
+                                                    createType = t
+                                                    createName = ""
+                                                    createColor = if (t == "wechat") "#07C160" else if (t == "alipay") "#1677FF" else if (t == "jd") "#E3312C" else "#F5A623"
+                                                }) {
+                                                    Text(l, color = if (sel) Green500 else MaterialTheme.colorScheme.onSurface, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
+                                                }
+                                            }
+                                        }
+                                        // Bank picker or name input
+                                        if (createType == "bank") {
+                                            var showBankList by remember { mutableStateOf(false) }
+                                            TextButton(onClick = { showBankList = true }) {
+                                                Text(if (createName.isBlank()) "选择银行…" else createName)
+                                            }
+                                            if (showBankList) {
+                                                AlertDialog(
+                                                    onDismissRequest = { showBankList = false },
+                                                    title = { Text("选择银行") },
+                                                    text = {
+                                                        LazyColumn {
+                                                            items(Banks.all) { bank ->
+                                                                Row(
+                                                                    modifier = Modifier.fillMaxWidth().clickable {
+                                                                        createName = bank.name; createColor = bank.colorHex; showBankList = false
+                                                                    }.padding(8.dp),
+                                                                    verticalAlignment = Alignment.CenterVertically,
+                                                                ) {
+                                                                    Text(bank.icon)
+                                                                    Spacer(modifier = Modifier.width(12.dp))
+                                                                    Text(bank.name)
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    confirmButton = {},
+                                                    dismissButton = { TextButton(onClick = { showBankList = false }) { Text("取消") } },
+                                                )
+                                            }
+                                        } else {
+                                            OutlinedTextField(value = createName, onValueChange = { createName = it }, label = { Text("名称") }, singleLine = true)
+                                        }
+                                        OutlinedTextField(
+                                            value = createBalance,
+                                            onValueChange = { createBalance = it },
+                                            label = { Text("初始余额") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                            singleLine = true,
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        val bal = createBalance.toDoubleOrNull() ?: 0.0
+                                        val name = createName.ifBlank { if (createType == "bank") "银行卡" else when (createType) { "wechat" -> "微信支付"; "alipay" -> "支付宝"; "jd" -> "京东"; else -> "其他" } }
+                                        viewModel.createAccount(name, createType, createColor, bal)
+                                        showCreate = false
+                                    }) { Text("创建") }
+                                },
+                                dismissButton = { TextButton(onClick = { showCreate = false }) { Text("取消") } },
+                            )
                         }
                     }
                 }
