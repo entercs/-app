@@ -61,6 +61,8 @@ import com.financetracker.di.AppModule
 import com.financetracker.domain.model.Category
 import com.financetracker.domain.model.PaymentAccount
 import com.financetracker.domain.model.TransactionType
+import com.financetracker.ui.component.OcrScanButton
+import com.financetracker.ui.component.VoiceInputButton
 import com.financetracker.ui.theme.Green500
 import com.financetracker.ui.theme.Red500
 import java.text.SimpleDateFormat
@@ -132,16 +134,26 @@ fun AddTransactionScreen(editTransactionId: Long? = null, refundTransactionId: L
         ) {
             // Amount input
             item {
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) viewModel.setAmount(it) },
-                    label = { Text("金额") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth().focusRequester(amountFocusRequester),
-                    textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                    singleLine = true,
-                    prefix = { Text("¥ ", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = amount,
+                        onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) viewModel.setAmount(it) },
+                        label = { Text("金额") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f).focusRequester(amountFocusRequester),
+                        textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+                        singleLine = true,
+                        prefix = { Text("¥ ", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                    VoiceInputButton { (amount, _, merchant) ->
+                        amount?.let { a -> viewModel.setAmount(a.toBigDecimal().stripTrailingZeros().toPlainString()) }
+                        merchant?.let { m -> viewModel.setMerchant(m) }
+                    }
+                    OcrScanButton { (amount, _, merchant) ->
+                        amount?.let { a -> viewModel.setAmount(a.toBigDecimal().stripTrailingZeros().toPlainString()) }
+                        merchant?.let { m -> viewModel.setMerchant(m) }
+                    }
+                }
             }
 
             // Type toggle

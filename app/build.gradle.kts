@@ -74,6 +74,9 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
+    // ML Kit OCR
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+
     // Core
     implementation("androidx.core:core-ktx:1.15.0")
 
