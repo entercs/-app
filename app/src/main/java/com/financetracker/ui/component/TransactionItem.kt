@@ -56,7 +56,11 @@ fun TransactionItem(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Category icon
-            Text(text = category?.icon ?: "📂", fontSize = MaterialTheme.typography.headlineSmall.fontSize)
+            CategoryLogo(
+                categoryName = category?.name ?: "",
+                categoryIcon = category?.icon ?: "📂",
+                size = 28.dp,
+            )
             Spacer(modifier = Modifier.width(12.dp))
 
             // Info

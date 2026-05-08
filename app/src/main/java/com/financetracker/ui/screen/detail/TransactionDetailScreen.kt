@@ -45,8 +45,9 @@ import com.financetracker.di.AppModule
 import com.financetracker.domain.model.TransactionType
 import com.financetracker.ui.theme.Green500
 import com.financetracker.ui.theme.Red500
+import com.financetracker.ui.component.AccountLogo
+import com.financetracker.ui.component.CategoryLogo
 import com.financetracker.ui.theme.accountColor
-import com.financetracker.ui.theme.accountIcon
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -134,7 +135,11 @@ fun TransactionDetailScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         DetailRow("分类", "${category?.icon ?: ""} ${category?.name ?: "未知"}")
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        DetailRow("账户", "${accountIcon(account?.type ?: "", account?.name ?: "")} ${account?.name ?: "未知"}")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AccountLogo(type = account?.type ?: "", accountName = account?.name ?: "", size = 22.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(account?.name ?: "未知")
+                        }
                     }
                 }
             }

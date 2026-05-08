@@ -274,7 +274,11 @@ private fun CategoryChip(category: Category, isSelected: Boolean, onClick: () ->
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(category.icon)
+            com.financetracker.ui.component.CategoryLogo(
+                categoryName = category.name,
+                categoryIcon = category.icon,
+                size = 20.dp,
+            )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 category.name,
@@ -301,7 +305,7 @@ private fun AccountChip(account: PaymentAccount, isSelected: Boolean, onClick: (
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(com.financetracker.ui.theme.accountIcon(account.type, account.name))
+            com.financetracker.ui.component.AccountLogo(type = account.type, accountName = account.name, size = 20.dp)
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 account.name,
