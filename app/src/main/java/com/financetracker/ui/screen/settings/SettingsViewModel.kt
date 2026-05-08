@@ -42,12 +42,27 @@ class SettingsViewModel(
         viewModelScope.launch { prefs.setNotificationEnabled(enabled) }
     }
 
+    private val _feedback = MutableStateFlow<String?>(null)
+    val feedback: StateFlow<String?> = _feedback.asStateFlow()
+
+    fun clearFeedback() { _feedback.value = null }
+
     fun seedCategories() {
-        viewModelScope.launch { categoryRepo.seedIfEmpty() }
+        viewModelScope.launch {
+            val before = categoryRepo.count()
+            categoryRepo.seedIfEmpty()
+            val after = categoryRepo.count()
+            _feedback.value = if (after > before) "分类数据初始化成功" else "分类数据已存在，无需初始化"
+        }
     }
 
     fun seedAccounts() {
-        viewModelScope.launch { accountRepo.seedIfEmpty() }
+        viewModelScope.launch {
+            val before = accountRepo.count()
+            accountRepo.seedIfEmpty()
+            val after = accountRepo.count()
+            _feedback.value = if (after > before) "账户数据初始化成功" else "账户数据已存在，无需初始化"
+        }
     }
 
     fun exportCsv(context: Context) {
