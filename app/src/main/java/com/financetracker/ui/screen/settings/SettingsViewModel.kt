@@ -52,6 +52,11 @@ class SettingsViewModel(
 
     fun clearNotificationLog() = com.financetracker.notification.NotificationLogger.clear()
 
+    init {
+        // Fix old default account names (one-time)
+        viewModelScope.launch { accountRepo.fixAccountNames() }
+    }
+
     fun seedCategories() {
         viewModelScope.launch {
             val before = categoryRepo.count()
@@ -100,6 +105,18 @@ class SettingsViewModel(
 
     fun createAccount(name: String, type: String, color: String, balance: Double) {
         viewModelScope.launch { accountRepo.create(name, type, color, balance) }
+    }
+
+    fun deleteAccount(account: PaymentAccount) {
+        viewModelScope.launch {
+            val count = transactionRepo.countByAccountId(account.id)
+            if (count > 0) {
+                _feedback.value = "「${account.name}」有 ${count} 笔交易记录，无法删除"
+            } else {
+                accountRepo.delete(account.id)
+                _feedback.value = "「${account.name}」已删除"
+            }
+        }
     }
 
     fun clearExportState() {

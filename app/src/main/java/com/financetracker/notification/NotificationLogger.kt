@@ -14,12 +14,12 @@ data class NotificationLogEntry(
 ) {
     val formatted: String get() {
         val sdf = SimpleDateFormat("HH:mm:ss", Locale.CHINA)
-        val status = if (parsed) "✅ ${parsedAmount?.let { "¥$it" } ?: ""}" else "❌ 未识别"
+        val status = if (parsed) "✅ ${parsedAmount?.let { "$it" } ?: ""}" else "❌ 未识别"
         return "${sdf.format(Date(timestamp))} | $status\n来源: $packageName\n标题: $title\n内容: $text"
     }
     val shortForm: String get() {
         val sdf = SimpleDateFormat("HH:mm:ss", Locale.CHINA)
-        val status = if (parsed) "✅ ¥${String.format("%.2f", parsedAmount ?: 0.0)}" else "❌"
+        val status = if (parsed) "✅ ${String.format("%.2f", parsedAmount ?: 0.0)}" else "❌"
         return "${sdf.format(Date(timestamp))} $status $packageName"
     }
 }

@@ -36,7 +36,7 @@ class AlipayParser : NotificationParser {
         val merchant = merchantInlinePattern.find(combined)?.groupValues?.get(1)?.trim()
             ?: merchantTagPattern.find(combined)?.groupValues?.get(1)?.trim()
             ?: merchantPayPattern.find(combined)?.groupValues?.get(1)?.trim()
-            ?: "支付宝支付"
+            ?: "支付宝"
 
         return ParsedNotification(
             amount = amount,

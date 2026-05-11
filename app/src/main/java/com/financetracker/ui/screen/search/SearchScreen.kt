@@ -56,12 +56,6 @@ fun SearchScreen(onTransactionClick: (Long) -> Unit = {}) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("搜索", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Green500, titleContentColor = Color.White),
-            )
-        },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),

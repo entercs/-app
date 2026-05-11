@@ -1,7 +1,9 @@
 package com.financetracker.ui.component
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +35,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TransactionItem(
     transaction: Transaction,
@@ -40,6 +43,7 @@ fun TransactionItem(
     account: PaymentAccount?,
     toAccount: PaymentAccount? = null,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val bgColor = try {
@@ -49,7 +53,10 @@ fun TransactionItem(
     }
 
     Card(
-        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth().then(
+            if (onLongClick != null) Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            else Modifier.clickable(onClick = onClick)
+        ),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         val isTransfer = transaction.type == TransactionType.TRANSFER
@@ -122,7 +129,7 @@ fun TransactionItem(
             }
             val color = if (isTransfer) Color(0xFF757575) else if (transaction.type == TransactionType.INCOME) Green500 else Red500
             Text(
-                text = "$prefix¥${String.format("%.2f", transaction.amount)}",
+                text = "$prefix${String.format("%.2f", transaction.amount)}",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = color,
             )

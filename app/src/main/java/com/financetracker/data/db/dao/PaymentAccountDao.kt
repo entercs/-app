@@ -35,4 +35,7 @@ interface PaymentAccountDao {
 
     @Query("UPDATE payment_accounts SET name = :name, color = :color WHERE id = :id")
     suspend fun updateNameAndColor(id: Long, name: String, color: String)
+
+    @Query("DELETE FROM payment_accounts WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

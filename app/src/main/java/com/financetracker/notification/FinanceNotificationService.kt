@@ -29,23 +29,56 @@ class FinanceNotificationService : AccessibilityService() {
     private var lastScreenCaptureTime = 0L
     private var lastScreenCaptureHash = 0
 
-    // Track last notification time per app: only capture screen content within 60s of a notification
-    private val lastNotificationTime = mutableMapOf<String, Long>()
-
     // Global dedup: prevent same amount from being recorded twice within 30s
     private val recentRecordedAmounts = mutableMapOf<Double, Long>()
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val packageName = event.packageName?.toString() ?: return
-        val parser = parsers.firstOrNull { packageName in it.supportedPackages } ?: return
+        val isPaymentApp = parsers.any { packageName in it.supportedPackages }
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
-                lastNotificationTime[packageName] = System.currentTimeMillis()
+                val parser = parsers.firstOrNull { packageName in it.supportedPackages } ?: return
                 handleNotification(event, parser, packageName)
             }
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> handleWindowContent(event, packageName)
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+                if (!isPaymentApp && packageName !in topScreenPackages) return
+                scope.launch {
+                    delay(200)
+                    val root = rootInActiveWindow
+                    if (root != null) {
+                        handleWindowContent(root, packageName)
+                        root.recycle()
+                    }
+                }
+            }
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                if (!isPaymentApp && packageName !in topScreenPackages) return
+                scope.launch {
+                    delay(500)
+                    val root = rootInActiveWindow
+                    if (root != null) {
+                        handleWindowContent(root, packageName)
+                        root.recycle()
+                    }
+                }
+            }
         }
+    }
+
+    // Known app packages where payment may happen via in-app screens or webviews
+    private val topScreenPackages = setOf(
+        "com.eg.android.AlipayGphone", "com.eg.android.AlipayGphoneRC",
+        "com.eg.android.AlipayGphoneGlobal", "hk.alipay.wallet",
+        "com.tencent.mm", "com.jingdong.app.mall",
+        "com.taobao.taobao", "com.tmall.wireless",
+    )
+
+    private fun accountTypeForPackage(packageName: String): String? = when {
+        packageName.startsWith("com.eg.android.Alipay") || packageName == "hk.alipay.wallet" -> "alipay"
+        packageName == "com.tencent.mm" -> "wechat"
+        packageName == "com.jingdong.app.mall" -> "jd"
+        else -> null
     }
 
     private fun handleNotification(event: AccessibilityEvent, parser: NotificationParser, packageName: String) {
@@ -73,8 +106,8 @@ class FinanceNotificationService : AccessibilityService() {
                 parsedAmount = parsed?.amount,
             ))
             if (parsed != null) {
-                recordTransaction(parsed)
-                showNotification("已自动记账", "${parsed.merchant} ¥${String.format("%.2f", parsed.amount)}")
+                recordTransaction(parsed, packageName)
+                showNotification("已自动记账", "${parsed.merchant} ${String.format("%.2f", parsed.amount)}")
             } else {
                 val hasPayHint = listOf("支付", "交易", "付款", "账单").any { it in title || it in text }
                 if (hasPayHint) {
@@ -84,22 +117,15 @@ class FinanceNotificationService : AccessibilityService() {
         }
     }
 
-    private fun handleWindowContent(event: AccessibilityEvent, packageName: String) {
-        // Time gate: only process screen content within 60s of a notification from same app
+    private fun handleWindowContent(root: android.view.accessibility.AccessibilityNodeInfo, packageName: String) {
         val now = System.currentTimeMillis()
-        val lastNotifTime = lastNotificationTime[packageName] ?: return
-        if (now - lastNotifTime > 60_000) return
 
-        // Deduplicate: ignore events within 3s with same content hash
-        val source = event.source
-        val contentHash = listNotNullTexts(source).hashCode()
-
+        val contentHash = listNotNullTexts(root).hashCode()
         if (now - lastScreenCaptureTime < 2000 && contentHash == lastScreenCaptureHash) return
 
         scope.launch {
-            val parsed = screenParser.parse(packageName, source)
-            // Log screen content attempts
-            val screenTexts = listNotNullTexts(source)
+            val parsed = screenParser.parse(packageName, root)
+            val screenTexts = listNotNullTexts(root)
             NotificationLogger.log(NotificationLogEntry(
                 timestamp = now,
                 packageName = packageName,
@@ -111,8 +137,8 @@ class FinanceNotificationService : AccessibilityService() {
             if (parsed != null) {
                 lastScreenCaptureTime = now
                 lastScreenCaptureHash = contentHash
-                recordTransaction(parsed)
-                showNotification("已自动记账(屏幕)", "${parsed.merchant} ¥${String.format("%.2f", parsed.amount)}")
+                recordTransaction(parsed, packageName)
+                showNotification("已自动记账(屏幕)", "${parsed.merchant} ${String.format("%.2f", parsed.amount)}")
             }
         }
     }
@@ -134,7 +160,10 @@ class FinanceNotificationService : AccessibilityService() {
         }
     }
 
-    private suspend fun recordTransaction(parsed: com.financetracker.domain.model.ParsedNotification) {
+    private suspend fun recordTransaction(
+        parsed: com.financetracker.domain.model.ParsedNotification,
+        packageName: String,
+    ) {
         val now = System.currentTimeMillis()
 
         // Global dedup: same amount within 30s → skip
@@ -145,7 +174,9 @@ class FinanceNotificationService : AccessibilityService() {
         recentRecordedAmounts.entries.removeAll { now - it.value > 60_000 }
 
         val db = com.financetracker.FinanceTrackerApp.instance.database
-        val account = db.paymentAccountDao().getByType(parsed.accountType) ?: return
+        // Match account by package name, fall back to parser's accountType
+        val accountType = accountTypeForPackage(packageName) ?: parsed.accountType
+        val account = db.paymentAccountDao().getByType(accountType) ?: return
         val categoryId = classifier.classify(parsed.merchant)
 
         val transaction = com.financetracker.domain.model.Transaction(

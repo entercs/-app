@@ -20,20 +20,31 @@ class StatisticsRepository(
         val percentage: Float,
     )
 
-    suspend fun getCategorySummaries(startOfMonth: Long, endOfMonth: Long): List<CategorySummary> {
-        val total = transactionRepo.getMonthlyTotal(TransactionType.EXPENSE, startOfMonth, endOfMonth)
+    suspend fun getCategorySummaries(startOfMonth: Long, endOfMonth: Long, type: TransactionType = TransactionType.EXPENSE): List<CategorySummary> {
+        val total = transactionRepo.getMonthlyTotal(type, startOfMonth, endOfMonth)
         if (total == 0.0) return emptyList()
 
-        val expenseCategories = categoryRepo.getByType(TransactionType.EXPENSE).first()
-        val categories = mutableListOf<CategorySummary>()
-        for (cat in expenseCategories) {
-            val amount = transactionRepo.getCategoryTotal(cat.id, startOfMonth, endOfMonth)
+        val categories = categoryRepo.getByType(type).first()
+        val result = mutableListOf<CategorySummary>()
+        for (cat in categories) {
+            val amount = transactionRepo.getCategoryTotal(type, cat.id, startOfMonth, endOfMonth)
             if (amount > 0) {
-                categories.add(
+                result.add(
                     CategorySummary(cat, amount, (amount / total).toFloat())
                 )
             }
         }
-        return categories.sortedByDescending { it.amount }
+        return result.sortedByDescending { it.amount }
+    }
+
+    data class DailyTotal(
+        val dayStart: Long,
+        val total: Double,
+    )
+
+    suspend fun getDailyTotals(start: Long, end: Long, type: TransactionType): List<DailyTotal> {
+        return transactionRepo.getDailyTotals(type, start, end).map {
+            DailyTotal(it.dayStart, it.total)
+        }
     }
 }

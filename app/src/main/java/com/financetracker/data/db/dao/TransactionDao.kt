@@ -49,8 +49,24 @@ interface TransactionDao {
 
     @Query("""
         SELECT COALESCE(SUM(amount), 0) FROM transactions
-        WHERE type = 'EXPENSE' AND categoryId = :categoryId
+        WHERE type = :type AND categoryId = :categoryId
         AND date >= :startOfMonth AND date < :endOfMonth
     """)
-    suspend fun getCategoryTotal(categoryId: Long, startOfMonth: Long, endOfMonth: Long): Double
+    suspend fun getCategoryTotal(type: String, categoryId: Long, startOfMonth: Long, endOfMonth: Long): Double
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE accountId = :accountId")
+    suspend fun countByAccountId(accountId: Long): Int
+
+    @Query("""
+        SELECT (date + 28800000) / 86400000 * 86400000 - 28800000 as dayStart, SUM(amount) as total
+        FROM transactions
+        WHERE type = :type AND date >= :start AND date < :end
+        GROUP BY (date + 28800000) / 86400000 ORDER BY dayStart
+    """)
+    suspend fun getDailyTotals(type: String, start: Long, end: Long): List<DailyTotal>
 }
+
+data class DailyTotal(
+    val dayStart: Long,
+    val total: Double,
+)

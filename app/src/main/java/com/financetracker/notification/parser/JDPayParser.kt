@@ -20,7 +20,7 @@ class JDPayParser : NotificationParser {
 
         return ParsedNotification(
             amount = amount,
-            merchant = "京东商城",
+            merchant = "京东",
             accountType = "jd",
             payTime = System.currentTimeMillis(),
         )

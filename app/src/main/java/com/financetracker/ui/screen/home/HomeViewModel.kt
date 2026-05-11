@@ -9,9 +9,12 @@ import com.financetracker.data.repository.TransactionRepository
 import com.financetracker.domain.model.Category
 import com.financetracker.domain.model.PaymentAccount
 import com.financetracker.domain.model.Transaction
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.util.Calendar
 
 class HomeViewModel(
@@ -50,6 +53,28 @@ class HomeViewModel(
 
     val accounts: StateFlow<List<PaymentAccount>> =
         accountRepo.getAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _deletedTransaction = MutableStateFlow<Transaction?>(null)
+    val deletedTransaction: StateFlow<Transaction?> = _deletedTransaction.asStateFlow()
+
+    fun deleteTransaction(transaction: Transaction) {
+        viewModelScope.launch {
+            transactionRepo.delete(transaction)
+            _deletedTransaction.value = transaction
+        }
+    }
+
+    fun undoDelete() {
+        val transaction = _deletedTransaction.value ?: return
+        viewModelScope.launch {
+            transactionRepo.add(transaction.copy(id = 0))
+            _deletedTransaction.value = null
+        }
+    }
+
+    fun clearUndo() {
+        _deletedTransaction.value = null
+    }
 
     class Factory(
         private val transactionRepo: TransactionRepository,

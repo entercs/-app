@@ -20,7 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
@@ -46,13 +46,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.financetracker.data.repository.CategoryRepository
 import com.financetracker.data.repository.PaymentAccountRepository
@@ -61,7 +59,7 @@ import com.financetracker.di.AppModule
 import com.financetracker.domain.model.Category
 import com.financetracker.domain.model.PaymentAccount
 import com.financetracker.domain.model.TransactionType
-import com.financetracker.ui.component.OcrScanButton
+import com.financetracker.ui.component.CalculatorKeypad
 import com.financetracker.ui.component.VoiceInputButton
 import com.financetracker.ui.theme.Green500
 import com.financetracker.ui.theme.Red500
@@ -77,6 +75,7 @@ fun AddTransactionScreen(editTransactionId: Long? = null, refundTransactionId: L
             AppModule.transactionRepository,
             AppModule.categoryRepository,
             AppModule.paymentAccountRepository,
+            AppModule.appPreferences,
         )
     }
     val viewModel: AddTransactionViewModel = viewModel(factory = factory)
@@ -88,9 +87,6 @@ fun AddTransactionScreen(editTransactionId: Long? = null, refundTransactionId: L
         refundTransactionId?.let { viewModel.loadRefund(it) }
     }
 
-    val amountFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { amountFocusRequester.requestFocus() }
-
     val amount by viewModel.amount.collectAsState()
     val selectedType by viewModel.selectedType.collectAsState()
     val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
@@ -101,12 +97,14 @@ fun AddTransactionScreen(editTransactionId: Long? = null, refundTransactionId: L
     val note by viewModel.note.collectAsState()
     val date by viewModel.date.collectAsState()
     val saved by viewModel.saved.collectAsState()
+    val showEquals by viewModel.showEquals.collectAsState()
 
     val expenseCategories by viewModel.expenseCategories.collectAsState()
     val incomeCategories by viewModel.incomeCategories.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
 
     var showDatePicker by remember { mutableStateOf(false) }
+    var showAccountPicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = date)
 
     LaunchedEffect(saved) {
@@ -114,6 +112,29 @@ fun AddTransactionScreen(editTransactionId: Long? = null, refundTransactionId: L
     }
 
     val categories = if (selectedType == TransactionType.EXPENSE) expenseCategories else incomeCategories
+    val selectedAccount = accounts.find { it.id == selectedAccountId } ?: accounts.firstOrNull()
+
+    // Account picker dialog
+    if (showAccountPicker) {
+        AlertDialog(
+            onDismissRequest = { showAccountPicker = false },
+            title = { Text("选择支付账户") },
+            text = {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    accounts.forEach { account ->
+                        AccountChip(account, isSelected = selectedAccountId == account.id) {
+                            viewModel.setAccountId(account.id)
+                            showAccountPicker = false
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showAccountPicker = false }) { Text("关闭") }
+            },
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -128,180 +149,180 @@ fun AddTransactionScreen(editTransactionId: Long? = null, refundTransactionId: L
             )
         },
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding),
         ) {
-            // Amount input
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = amount,
-                        onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) viewModel.setAmount(it) },
-                        label = { Text("金额") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f).focusRequester(amountFocusRequester),
-                        textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                        singleLine = true,
-                        prefix = { Text("¥ ", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    )
-                    VoiceInputButton { (amount, _, merchant) ->
-                        amount?.let { a -> viewModel.setAmount(a.toBigDecimal().stripTrailingZeros().toPlainString()) }
-                        merchant?.let { m -> viewModel.setMerchant(m) }
-                    }
-                    OcrScanButton { (amount, _, merchant) ->
-                        amount?.let { a -> viewModel.setAmount(a.toBigDecimal().stripTrailingZeros().toPlainString()) }
-                        merchant?.let { m -> viewModel.setMerchant(m) }
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // Amount
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = amount,
+                            onValueChange = { viewModel.setAmount(it) },
+                            label = { Text("金额") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f),
+                            textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+                            singleLine = true,
+                            readOnly = true,
+                                                    )
+                        VoiceInputButton { (amt, _, merch) ->
+                            amt?.let { a -> viewModel.setAmount(a.toBigDecimal().stripTrailingZeros().toPlainString()) }
+                            merch?.let { m -> viewModel.setMerchant(m) }
+                        }
                     }
                 }
-            }
 
-            // Type toggle
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    listOf(TransactionType.EXPENSE to "支出", TransactionType.INCOME to "收入", TransactionType.TRANSFER to "转账").forEach { (type, label) ->
-                        val isSelected = selectedType == type
-                        val typeColor = when (type) { TransactionType.EXPENSE -> Red500; TransactionType.INCOME -> Green500; else -> Color(0xFF757575) }
-                        val bgColor = if (isSelected) typeColor else Color.Transparent
-                        val textColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                // Type toggle
+                item {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        listOf(TransactionType.EXPENSE to "支出", TransactionType.INCOME to "收入", TransactionType.TRANSFER to "转账").forEach { (type, label) ->
+                            val isSelected = selectedType == type
+                            val typeColor = when (type) { TransactionType.EXPENSE -> Red500; TransactionType.INCOME -> Green500; else -> Color(0xFF757575) }
+                            val bgColor = if (isSelected) typeColor else Color.Transparent
+                            val textColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
 
+                            Card(
+                                modifier = Modifier.weight(1f).clickable { viewModel.setType(type) },
+                                colors = CardDefaults.cardColors(containerColor = bgColor),
+                                border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                            ) {
+                                Text(
+                                    text = label,
+                                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    color = textColor,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Reimbursable toggle (right after type, only for expense)
+                if (selectedType == TransactionType.EXPENSE) {
+                    item {
                         Card(
-                            modifier = Modifier.weight(1f).clickable { viewModel.setType(type) },
-                            colors = CardDefaults.cardColors(containerColor = bgColor),
-                            border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                            modifier = Modifier.fillMaxWidth().clickable { viewModel.setReimbursable(!reimbursable) },
+                            colors = CardDefaults.cardColors(containerColor = if (reimbursable) Green500.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant),
+                            border = if (reimbursable) BorderStroke(1.dp, Green500) else null,
                         ) {
-                            Text(
-                                text = label,
-                                modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                color = textColor,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Category selector (hidden for transfers)
-            if (selectedType != TransactionType.TRANSFER) {
-                item {
-                    Text("选择分类", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        categories.forEach { cat ->
-                            CategoryChip(cat, isSelected = selectedCategoryId == cat.id) {
-                                viewModel.setCategoryId(cat.id)
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("可报销", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                Switch(checked = reimbursable, onCheckedChange = { viewModel.setReimbursable(it) })
                             }
                         }
                     }
                 }
-            }
 
-            // Account selector
-            item {
-                Text(if (selectedType == TransactionType.TRANSFER) "转出账户" else "支付账户", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    accounts.forEach { account ->
-                        AccountChip(account, isSelected = selectedAccountId == account.id) {
-                            viewModel.setAccountId(account.id)
+                // Transfer account selectors (only for transfer)
+                if (selectedType == TransactionType.TRANSFER) {
+                    item {
+                        Text("转出账户", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            accounts.forEach { account ->
+                                AccountChip(account, isSelected = selectedAccountId == account.id) {
+                                    viewModel.setAccountId(account.id)
+                                }
+                            }
                         }
                     }
-                }
-            }
-
-            // Transfer-to account
-            if (selectedType == TransactionType.TRANSFER) {
-                item {
-                    Text("转入账户", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        accounts.filter { it.id != selectedAccountId }.forEach { account ->
-                            AccountChip(account, isSelected = transferToAccountId == account.id) {
-                                viewModel.setTransferToAccountId(account.id)
+                    item {
+                        Text("转入账户", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            accounts.filter { it.id != selectedAccountId }.forEach { account ->
+                                AccountChip(account, isSelected = transferToAccountId == account.id) {
+                                    viewModel.setTransferToAccountId(account.id)
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Date picker
-            item {
-                Text("交易时间", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                ) {
-                    Text(
-                        text = dateFormat.format(Date(date)),
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodyLarge,
+                // Category selector (for non-transfer)
+                if (selectedType != TransactionType.TRANSFER) {
+                    item {
+                        Text("选择分类", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            categories.forEach { cat ->
+                                CategoryChip(cat, isSelected = selectedCategoryId == cat.id) {
+                                    viewModel.setCategoryId(cat.id)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Date
+                item {
+                    Text("交易时间", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    ) {
+                        Text(
+                            text = dateFormat.format(Date(date)),
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
+
+                // Merchant
+                item {
+                    OutlinedTextField(
+                        value = merchant,
+                        onValueChange = viewModel::setMerchant,
+                        label = { Text("商户名称（选填）") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
                     )
                 }
-            }
 
-            // Merchant
-            item {
-                OutlinedTextField(
-                    value = merchant,
-                    onValueChange = viewModel::setMerchant,
-                    label = { Text("商户名称（选填）") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-            }
+                // Note
+                item {
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = viewModel::setNote,
+                        label = { Text("备注（选填）") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                }
 
-            // Note
-            item {
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = viewModel::setNote,
-                    label = { Text("备注（选填）") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-            }
-
-            // Note templates
-            item {
-                val templates = listOf("午餐", "晚餐", "通勤", "咖啡", "超市", "房租", "话费", "快递")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    templates.forEach { tpl ->
-                        TextButton(onClick = { viewModel.setNote(tpl) }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
-                            Text(tpl, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Note templates
+                item {
+                    val templates = listOf("午餐", "晚餐", "通勤", "咖啡", "超市", "房租", "话费", "快递")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        templates.forEach { tpl ->
+                            TextButton(onClick = { viewModel.setNote(tpl) }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                                Text(tpl, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
+
+                item { Spacer(modifier = Modifier.height(4.dp)) }
             }
 
-            // Reimbursable toggle
-            if (selectedType == TransactionType.EXPENSE) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { viewModel.setReimbursable(!reimbursable) }.padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("可报销", modifier = Modifier.weight(1f))
-                        Switch(checked = reimbursable, onCheckedChange = { viewModel.setReimbursable(it) })
-                    }
-                }
-            }
-
-            // Save button
-            item {
-                Button(
-                    onClick = viewModel::save,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Green500),
-                    enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0
-                            && selectedAccountId > 0
-                            && (selectedType == TransactionType.TRANSFER && transferToAccountId > 0 && transferToAccountId != selectedAccountId
-                                || selectedType != TransactionType.TRANSFER && selectedCategoryId > 0),
-                ) {
-                    Text(if (editTransactionId != null) "更新" else "保存", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-            }
+            // Calculator keypad with account indicator
+            CalculatorKeypad(
+                showEquals = showEquals,
+                selectedAccount = if (selectedType != TransactionType.TRANSFER) selectedAccount else null,
+                onAccountClick = { showAccountPicker = true },
+                onKey = { key -> viewModel.onKeypadKey(key) },
+            )
         }
     }
 

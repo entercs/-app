@@ -80,8 +80,8 @@ class ScreenContentParser {
 
         if (merchant.isBlank()) {
             merchant = when {
-                packageName.contains("Alipay") -> "支付宝支付"
-                packageName.contains("tencent") -> "微信支付"
+                packageName.contains("Alipay") -> "支付宝"
+                packageName.contains("tencent") -> "微信"
                 else -> "支付"
             }
         }

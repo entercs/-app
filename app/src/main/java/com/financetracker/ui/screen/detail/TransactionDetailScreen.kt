@@ -122,7 +122,7 @@ fun TransactionDetailScreen(
                         Text("${category?.icon ?: ""} ${category?.name ?: "未知分类"}", style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "$prefix¥${String.format("%.2f", t.amount)}",
+                            "$prefix${String.format("%.2f", t.amount)}",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = color,

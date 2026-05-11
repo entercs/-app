@@ -71,10 +71,10 @@ fun DateHeader(label: String, totalExpense: Double, totalIncome: Double) {
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (totalExpense > 0) {
-                Text("支出 ¥${String.format("%.2f", totalExpense)}", fontSize = 12.sp, color = Red500)
+                Text("支出 ${String.format("%.2f", totalExpense)}", fontSize = 12.sp, color = Red500)
             }
             if (totalIncome > 0) {
-                Text("收入 ¥${String.format("%.2f", totalIncome)}", fontSize = 12.sp, color = Green500)
+                Text("收入 ${String.format("%.2f", totalIncome)}", fontSize = 12.sp, color = Green500)
             }
         }
         Spacer(modifier = Modifier.height(2.dp))

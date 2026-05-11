@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.financetracker.data.repository.StatisticsRepository
 import com.financetracker.data.repository.StatisticsRepository.CategorySummary
 import com.financetracker.data.repository.TransactionRepository
+import com.financetracker.domain.model.TransactionType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,8 +43,22 @@ class StatisticsViewModel(
     private val _incomeTotal = MutableStateFlow(0.0)
     val incomeTotal: StateFlow<Double> = _incomeTotal.asStateFlow()
 
-    private val _categorySummaries = MutableStateFlow<List<CategorySummary>>(emptyList())
-    val categorySummaries: StateFlow<List<CategorySummary>> = _categorySummaries.asStateFlow()
+    private val _expenseCategories = MutableStateFlow<List<CategorySummary>>(emptyList())
+    val expenseCategories: StateFlow<List<CategorySummary>> = _expenseCategories.asStateFlow()
+
+    private val _incomeCategories = MutableStateFlow<List<CategorySummary>>(emptyList())
+    val incomeCategories: StateFlow<List<CategorySummary>> = _incomeCategories.asStateFlow()
+
+    // Daily trend data
+    private val _expenseDailyTotals = MutableStateFlow<List<StatisticsRepository.DailyTotal>>(emptyList())
+    val expenseDailyTotals: StateFlow<List<StatisticsRepository.DailyTotal>> = _expenseDailyTotals.asStateFlow()
+
+    private val _incomeDailyTotals = MutableStateFlow<List<StatisticsRepository.DailyTotal>>(emptyList())
+    val incomeDailyTotals: StateFlow<List<StatisticsRepository.DailyTotal>> = _incomeDailyTotals.asStateFlow()
+
+    // Selected type: null = overview, EXPENSE = expense detail, INCOME = income detail
+    private val _selectedType = MutableStateFlow<TransactionType?>(null)
+    val selectedType: StateFlow<TransactionType?> = _selectedType.asStateFlow()
 
     // Comparison data
     private val _prevExpenseTotal = MutableStateFlow(0.0)
@@ -51,9 +66,6 @@ class StatisticsViewModel(
 
     private val _prevIncomeTotal = MutableStateFlow(0.0)
     val prevIncomeTotal: StateFlow<Double> = _prevIncomeTotal.asStateFlow()
-
-    private val _prevCategorySummaries = MutableStateFlow<List<CategorySummary>>(emptyList())
-    val prevCategorySummaries: StateFlow<List<CategorySummary>> = _prevCategorySummaries.asStateFlow()
 
     // Yearly data
     private val _monthlyExpenses = MutableStateFlow<List<Double>>(emptyList())
@@ -70,9 +82,13 @@ class StatisticsViewModel(
     private val _canGoNext = MutableStateFlow(false)
     val canGoNext: StateFlow<Boolean> = _canGoNext.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private var observeJob: Job? = null
 
     init {
+        _selectedType.value = TransactionType.EXPENSE
         setPeriod(StatPeriod.MONTH)
     }
 
@@ -119,7 +135,7 @@ class StatisticsViewModel(
                 val weekStart = cal.timeInMillis
                 cal.add(Calendar.DAY_OF_MONTH, 6)
                 cal.set(Calendar.HOUR_OF_DAY, 23); cal.set(Calendar.MINUTE, 59); cal.set(Calendar.SECOND, 59); cal.set(Calendar.MILLISECOND, 999)
-                _endDate.value = minOf(cal.timeInMillis, now)
+                _endDate.value = cal.timeInMillis
                 // Can go next if this week ends before today
                 _canGoNext.value = weekStart + 7L * 86400000 <= now
             }
@@ -131,9 +147,10 @@ class StatisticsViewModel(
                 _startDate.value = cal.timeInMillis
                 cal.add(Calendar.MONTH, 1)
                 cal.add(Calendar.MILLISECOND, -1)
-                _endDate.value = minOf(cal.timeInMillis, now)
+                _endDate.value = cal.timeInMillis
                 // Check if next month exists
-                _canGoNext.value = _endDate.value < now || (cal.timeInMillis - 86400000) <= now
+                val periodEnd = minOf(cal.timeInMillis, now)
+                _canGoNext.value = periodEnd < now || (cal.timeInMillis - 86400000) <= now
             }
             StatPeriod.YEAR -> {
                 cal.timeInMillis = now
@@ -144,8 +161,8 @@ class StatisticsViewModel(
                 _startDate.value = cal.timeInMillis
                 cal.add(Calendar.YEAR, 1)
                 cal.add(Calendar.MILLISECOND, -1)
-                _endDate.value = minOf(cal.timeInMillis, now)
-                _canGoNext.value = (_endDate.value) < now
+                _endDate.value = cal.timeInMillis
+                _canGoNext.value = minOf(cal.timeInMillis, now) < now
             }
             StatPeriod.CUSTOM -> { /* Set externally */ }
         }
@@ -168,10 +185,26 @@ class StatisticsViewModel(
         }
     }
 
+    fun toggleType(type: TransactionType) {
+        _selectedType.value = if (_selectedType.value == type) null else type
+    }
+
+    fun refresh() {
+        if (_isRefreshing.value) return
+        _isRefreshing.value = true
+        viewModelScope.launch {
+            loadData(_startDate.value, _endDate.value + 1)
+            _isRefreshing.value = false
+        }
+    }
+
     private suspend fun loadData(start: Long, end: Long) {
         _expenseTotal.value = statisticsRepo.getMonthlyExpenseTotal(start, end)
         _incomeTotal.value = statisticsRepo.getMonthlyIncomeTotal(start, end)
-        _categorySummaries.value = statisticsRepo.getCategorySummaries(start, end)
+        _expenseCategories.value = statisticsRepo.getCategorySummaries(start, end, TransactionType.EXPENSE)
+        _incomeCategories.value = statisticsRepo.getCategorySummaries(start, end, TransactionType.INCOME)
+        _expenseDailyTotals.value = statisticsRepo.getDailyTotals(start, end, TransactionType.EXPENSE)
+        _incomeDailyTotals.value = statisticsRepo.getDailyTotals(start, end, TransactionType.INCOME)
 
         // Previous period
         val duration = end - start
@@ -179,7 +212,6 @@ class StatisticsViewModel(
         val prevEnd = start
         _prevExpenseTotal.value = statisticsRepo.getMonthlyExpenseTotal(prevStart, prevEnd)
         _prevIncomeTotal.value = statisticsRepo.getMonthlyIncomeTotal(prevStart, prevEnd)
-        _prevCategorySummaries.value = statisticsRepo.getCategorySummaries(prevStart, prevEnd)
 
         // Yearly breakdown
         if (_period.value == StatPeriod.YEAR) {

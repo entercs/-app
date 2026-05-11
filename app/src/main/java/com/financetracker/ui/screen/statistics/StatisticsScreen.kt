@@ -1,21 +1,33 @@
 package com.financetracker.ui.screen.statistics
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.financetracker.data.repository.StatisticsRepository.CategorySummary
+import com.financetracker.data.repository.StatisticsRepository
 import com.financetracker.di.AppModule
+import com.financetracker.domain.model.TransactionType
 import com.financetracker.ui.component.CategoryLogo
 import com.financetracker.ui.component.PieChart
 import com.financetracker.ui.component.PieSlice
@@ -33,12 +45,18 @@ fun StatisticsScreen() {
     val factory = remember { StatisticsViewModel.Factory(AppModule.statisticsRepository, AppModule.transactionRepository) }
     val viewModel: StatisticsViewModel = viewModel(factory = factory)
 
+    LaunchedEffect(Unit) { viewModel.setPeriod(StatPeriod.MONTH) }
+
     val period by viewModel.period.collectAsState()
     val offset by viewModel.offset.collectAsState()
     val headerText by viewModel.headerText.collectAsState()
     val expenseTotal by viewModel.expenseTotal.collectAsState()
     val incomeTotal by viewModel.incomeTotal.collectAsState()
-    val categorySummaries by viewModel.categorySummaries.collectAsState()
+    val expenseCategories by viewModel.expenseCategories.collectAsState()
+    val incomeCategories by viewModel.incomeCategories.collectAsState()
+    val expenseDailyTotals by viewModel.expenseDailyTotals.collectAsState()
+    val incomeDailyTotals by viewModel.incomeDailyTotals.collectAsState()
+    val selectedType by viewModel.selectedType.collectAsState()
     val prevExpenseTotal by viewModel.prevExpenseTotal.collectAsState()
     val prevIncomeTotal by viewModel.prevIncomeTotal.collectAsState()
     val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
@@ -50,16 +68,16 @@ fun StatisticsScreen() {
     var showDatePicker by remember { mutableStateOf(false) }
     var showPeriodPicker by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("统计", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Green500, titleContentColor = Color.White),
-            )
-        },
-    ) { padding ->
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+
+    Scaffold { padding ->
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Period selector
@@ -102,108 +120,210 @@ fun StatisticsScreen() {
                 }
             }
 
-            // Summary cards
+            // Summary cards — clickable to toggle detail view
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Red500.copy(alpha = 0.1f))) {
+                    val expenseSelected = selectedType == TransactionType.EXPENSE
+                    Card(
+                        modifier = Modifier.weight(1f).clickable { viewModel.toggleType(TransactionType.EXPENSE) },
+                        colors = CardDefaults.cardColors(containerColor = if (expenseSelected) Red500.copy(alpha = 0.25f) else Red500.copy(alpha = 0.1f)),
+                    ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text("支出", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("支出 ▼", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text("¥${String.format("%.2f", expenseTotal)}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Red500)
+                            Text("${String.format("%.2f", expenseTotal)}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Red500)
                         }
                     }
-                    Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Green500.copy(alpha = 0.1f))) {
+                    val incomeSelected = selectedType == TransactionType.INCOME
+                    Card(
+                        modifier = Modifier.weight(1f).clickable { viewModel.toggleType(TransactionType.INCOME) },
+                        colors = CardDefaults.cardColors(containerColor = if (incomeSelected) Green500.copy(alpha = 0.25f) else Green500.copy(alpha = 0.1f)),
+                    ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text("收入", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("收入 ▼", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text("¥${String.format("%.2f", incomeTotal)}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Green500)
+                            Text("${String.format("%.2f", incomeTotal)}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Green500)
                         }
                     }
                 }
             }
 
-            // Comparison
-            if (prevExpenseTotal > 0) {
+            // When a type is selected, show pie chart + trend chart for that type
+            val selType = selectedType
+            if (selType != null) {
+                val summaries = if (selType == TransactionType.EXPENSE) expenseCategories else incomeCategories
+                val dailyTotals = if (selType == TransactionType.EXPENSE) expenseDailyTotals else incomeDailyTotals
+                val typeLabel = if (selType == TransactionType.EXPENSE) "支出" else "收入"
+                val typeColor = if (selType == TransactionType.EXPENSE) Red500 else Green500
+
+                // Pie chart — with corner protrusion connecting to summary card above
                 item {
-                    val diff = expenseTotal - prevExpenseTotal
-                    val pct = if (prevExpenseTotal > 0) (diff / prevExpenseTotal * 100) else 0.0
-                    val isUp = diff > 0
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = (if (isUp) Red500 else Green500).copy(alpha = 0.08f))) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("环比对比", style = MaterialTheme.typography.titleMedium)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("上期支出 ¥${String.format("%.2f", prevExpenseTotal)}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("本期支出 ¥${String.format("%.2f", expenseTotal)}", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            // Simple bar comparison
-                            val maxVal = maxOf(expenseTotal, prevExpenseTotal).toFloat().coerceAtLeast(1f)
-                            val prevW = (prevExpenseTotal / maxVal).toFloat().coerceAtLeast(0.05f)
-                            val currW = (expenseTotal / maxVal).toFloat().coerceAtLeast(0.05f)
-                            Row(modifier = Modifier.fillMaxWidth().height(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(modifier = Modifier.weight(prevW).fillMaxHeight().padding(end = 2.dp)) {
-                                    Canvas(modifier = Modifier.fillMaxSize()) {
-                                        drawRoundRect(Color.Gray.copy(alpha = 0.4f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f))
-                                    }
+                    val isExpense = selType == TransactionType.EXPENSE
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        // Width matching summary card: (total - 12dp spacing) / 2
+                        val tabWidth = (maxWidth - 12.dp) * 0.5f
+                        Column {
+                            // Protrusion row — sits above card, below summary card
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                if (isExpense) {
+                                    Card(
+                                        modifier = Modifier.width(tabWidth).height(14.dp),
+                                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                    ) {}
                                 }
-                                Box(modifier = Modifier.weight(currW).fillMaxHeight().padding(start = 2.dp)) {
-                                    Canvas(modifier = Modifier.fillMaxSize()) {
-                                        drawRoundRect(if (isUp) Red500 else Green500, cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f))
-                                    }
+                                Spacer(modifier = Modifier.weight(1f))
+                                if (!isExpense) {
+                                    Card(
+                                        modifier = Modifier.width(tabWidth).height(14.dp),
+                                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                    ) {}
                                 }
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                if (isUp) "比上期多花 ${String.format("%.1f", pct)}%" else "比上期少花 ${String.format("%.1f", kotlin.math.abs(pct))}%",
-                                fontSize = 12.sp, color = if (isUp) Red500 else Green500, fontWeight = FontWeight.Medium,
-                            )
+                            // Main Card — flat top where protrusion connects
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("${typeLabel}分类", style = MaterialTheme.typography.titleMedium)
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    if (summaries.isNotEmpty()) {
+                                        val slices = summaries.mapIndexed { i, s ->
+                                            PieSlice(
+                                                label = "${s.category.name}",
+                                                value = s.amount.toFloat(),
+                                                color = PieChartColors[i % PieChartColors.size],
+                                            )
+                                        }
+                                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                            PieChart(slices = slices)
+                                        }
+                                    } else {
+                                        Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                                            Text("暂无${typeLabel}数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            // Pie chart
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("支出分类", style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        val slices = categorySummaries.mapIndexed { i, s ->
-                            PieSlice(
-                                label = "${s.category.name}",
-                                value = s.amount.toFloat(),
-                                color = PieChartColors[i % PieChartColors.size],
-                            )
-                        }
-                        PieChart(slices = slices)
-                    }
-                }
-            }
-
-            // Yearly report (monthly bars)
-            if (period == StatPeriod.YEAR) {
+                // Trend chart
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("月度趋势", style = MaterialTheme.typography.titleMedium)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("年度总支出 ¥${String.format("%.2f", yearlyTotalExpense)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${typeLabel}趋势", style = MaterialTheme.typography.titleMedium)
                             Spacer(modifier = Modifier.height(12.dp))
-                            if (monthlyExpenses.isNotEmpty()) {
-                                val maxM = monthlyExpenses.max().toFloat().coerceAtLeast(1f)
-                                val months = listOf("1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月")
-                                Row(modifier = Modifier.fillMaxWidth().height(100.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    monthlyExpenses.forEachIndexed { i, v ->
-                                        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-                                                val h = (v / maxM).toFloat().coerceAtLeast(0.03f)
-                                                Canvas(modifier = Modifier.fillMaxWidth().fillMaxHeight(h)) {
-                                                    drawRoundRect(if (v > 0) Red500 else Color.LightGray, cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f))
+                            if (dailyTotals.isNotEmpty()) {
+                                TrendChart(
+                                    dailyTotals = dailyTotals,
+                                    startDate = startDate,
+                                    endDate = endDate,
+                                    lineColor = Color(0xFFFFA000),
+                                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                                )
+                            } else {
+                                Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                                    Text("暂无${typeLabel}趋势数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Category list
+                if (summaries.isNotEmpty()) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("分类明细", style = MaterialTheme.typography.titleMedium)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                summaries.forEach { cs ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        CategoryLogo(categoryName = cs.category.name, categoryIcon = cs.category.icon, size = 24.dp)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(cs.category.name, modifier = Modifier.weight(1f))
+                                        Text("${String.format("%.2f", cs.amount)}", fontWeight = FontWeight.Medium)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("${String.format("%.1f", cs.percentage * 100)}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Overview: comparison + yearly (when not toggled)
+                if (prevExpenseTotal > 0) {
+                    item {
+                        val diff = expenseTotal - prevExpenseTotal
+                        val pct = if (prevExpenseTotal > 0) (diff / prevExpenseTotal * 100) else 0.0
+                        val isUp = diff > 0
+                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = (if (isUp) Red500 else Green500).copy(alpha = 0.08f))) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("环比对比", style = MaterialTheme.typography.titleMedium)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("上期支出 ${String.format("%.2f", prevExpenseTotal)}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("本期支出 ${String.format("%.2f", expenseTotal)}", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                val maxVal = maxOf(expenseTotal, prevExpenseTotal).toFloat().coerceAtLeast(1f)
+                                val prevW = (prevExpenseTotal / maxVal).toFloat().coerceAtLeast(0.05f)
+                                val currW = (expenseTotal / maxVal).toFloat().coerceAtLeast(0.05f)
+                                Row(modifier = Modifier.fillMaxWidth().height(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Box(modifier = Modifier.weight(prevW).fillMaxHeight().padding(end = 2.dp)) {
+                                        Canvas(modifier = Modifier.fillMaxSize()) {
+                                            drawRoundRect(Color.Gray.copy(alpha = 0.4f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f))
+                                        }
+                                    }
+                                    Box(modifier = Modifier.weight(currW).fillMaxHeight().padding(start = 2.dp)) {
+                                        Canvas(modifier = Modifier.fillMaxSize()) {
+                                            drawRoundRect(if (isUp) Red500 else Green500, cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f))
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    if (isUp) "比上期多花 ${String.format("%.1f", pct)}%" else "比上期少花 ${String.format("%.1f", kotlin.math.abs(pct))}%",
+                                    fontSize = 12.sp, color = if (isUp) Red500 else Green500, fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Yearly report (monthly bars)
+                if (period == StatPeriod.YEAR) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("月度趋势", style = MaterialTheme.typography.titleMedium)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("年度总支出 ${String.format("%.2f", yearlyTotalExpense)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.height(12.dp))
+                                if (monthlyExpenses.isNotEmpty()) {
+                                    val maxM = monthlyExpenses.max().toFloat().coerceAtLeast(1f)
+                                    val months = listOf("1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月")
+                                    Row(modifier = Modifier.fillMaxWidth().height(100.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        monthlyExpenses.forEachIndexed { i, v ->
+                                            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                                                    val h = (v / maxM).toFloat().coerceAtLeast(0.03f)
+                                                    Canvas(modifier = Modifier.fillMaxWidth().fillMaxHeight(h)) {
+                                                        drawRoundRect(if (v > 0) Red500 else Color.LightGray, cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f))
+                                                    }
                                                 }
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(months[i], fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(months[i], fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
                                 }
@@ -213,37 +333,14 @@ fun StatisticsScreen() {
                 }
             }
 
-            // Category list with logos
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("分类明细", style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        categorySummaries.forEach { cs ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                CategoryLogo(categoryName = cs.category.name, categoryIcon = cs.category.icon, size = 24.dp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(cs.category.name, modifier = Modifier.weight(1f))
-                                Text("¥${String.format("%.2f", cs.amount)}", fontWeight = FontWeight.Medium)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("${String.format("%.1f", cs.percentage * 100)}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                }
-            }
-
             item { Spacer(modifier = Modifier.height(16.dp)) }
+        }
         }
     }
 
     // Custom range date picker
     if (showDatePicker && period == StatPeriod.CUSTOM) {
         val now = System.currentTimeMillis()
-        val nowCal = Calendar.getInstance().apply { timeInMillis = now }
         var pickStart by remember { mutableStateOf(startDate) }
         var pickEnd by remember { mutableStateOf(endDate) }
 
@@ -276,6 +373,126 @@ fun StatisticsScreen() {
 }
 
 @Composable
+private fun TrendChart(
+    dailyTotals: List<StatisticsRepository.DailyTotal>,
+    startDate: Long,
+    endDate: Long,
+    lineColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    if (dailyTotals.isEmpty()) return
+
+    // Build a map of dayStart -> total
+    val dataMap = dailyTotals.associate { it.dayStart to it.total }
+
+    // Fill all days in range
+    val dayMs = 86400000L
+    val days = mutableListOf<Pair<Long, Double>>()
+    var d = startDate
+    while (d <= endDate) {
+        days.add(d to (dataMap[d] ?: 0.0))
+        d += dayMs
+    }
+
+    if (days.size <= 1) return
+
+    val maxVal = days.maxOf { it.second }.toFloat().coerceAtLeast(1f)
+    val cal = Calendar.getInstance()
+    val yLabels = listOf(0f, maxVal / 2f, maxVal).map { String.format("%.0f", it) }
+
+    // Compute X-axis labels: pick ~6 evenly spaced day numbers
+    val labelCount = minOf(days.size, 6)
+    val labelStep = if (days.size > 1) (days.size - 1).toFloat() / (labelCount - 1).toFloat().coerceAtLeast(1f) else 1f
+    val labelEntries = (0 until labelCount).map { i ->
+        val idx = (i * labelStep).toInt().coerceAtMost(days.size - 1)
+        cal.timeInMillis = days[idx].first
+        cal.get(Calendar.DAY_OF_MONTH).toString()
+    }
+
+    val textPaint = remember {
+        android.graphics.Paint().apply {
+            color = 0xFF666666.toInt()
+            textSize = 34f
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.RIGHT
+        }
+    }
+    val textHeight = remember { textPaint.fontMetrics.let { it.descent - it.ascent } }
+
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val padLeft = 48f
+        val padBottom = 24f
+        val padTop = 8f
+        val padRight = 8f
+        val chartW = w - padLeft - padRight
+        val chartH = h - padTop - padBottom
+
+        // Draw Y-axis labels and grid lines
+        val gridLines = 2 // 3 labels: max, half, 0
+        for (i in 0..gridLines) {
+            val y = padTop + chartH * i / gridLines
+            drawLine(Color.LightGray.copy(alpha = 0.3f), Offset(padLeft, y), Offset(w - padRight, y), strokeWidth = 1f)
+            // Y label
+            val yi = i
+            drawIntoCanvas { canvas ->
+                canvas.nativeCanvas.drawText(
+                    yLabels[gridLines - yi],
+                    padLeft - 8f,
+                    y + textHeight / 3f,
+                    textPaint,
+                )
+            }
+        }
+
+        // Draw axes
+        val axisColor = Color(0xFFAAAAAA)
+        val bottomY = padTop + chartH
+        drawLine(axisColor, Offset(padLeft, padTop), Offset(padLeft, bottomY), strokeWidth = 2f)
+        drawLine(axisColor, Offset(padLeft, bottomY), Offset(w - padRight, bottomY), strokeWidth = 2f)
+
+        // Draw line chart
+        val path = Path()
+        val stepX = chartW / (days.size - 1).toFloat()
+
+        days.forEachIndexed { i, (_, amount) ->
+            val x = padLeft + stepX * i
+            val y = padTop + chartH * (1f - amount.toFloat() / maxVal)
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+
+        drawPath(path, lineColor, style = Stroke(width = 3.5f, cap = StrokeCap.Round))
+
+        // Draw hollow dots
+        days.forEachIndexed { i, (_, amount) ->
+            val x = padLeft + stepX * i
+            val y = padTop + chartH * (1f - amount.toFloat() / maxVal)
+            drawCircle(lineColor, radius = 5f, center = Offset(x, y), style = Stroke(width = 2.5f))
+        }
+
+        // X-axis labels
+        val xTextPaint = android.graphics.Paint().apply {
+            color = 0xFF666666.toInt()
+            textSize = 34f
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+        labelEntries.forEachIndexed { i, label ->
+            val idx = (i * labelStep).toInt().coerceAtMost(days.size - 1)
+            drawIntoCanvas { canvas ->
+                canvas.nativeCanvas.drawText(
+                    label,
+                    padLeft + stepX * idx,
+                    h,
+                    xTextPaint,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun YearMonthDayPicker(currentMillis: Long, maxDate: Long = System.currentTimeMillis(), onDate: (Long) -> Unit) {
     val cal = Calendar.getInstance().apply { timeInMillis = currentMillis }
     val nowCal = Calendar.getInstance().apply { timeInMillis = maxDate }
@@ -285,7 +502,6 @@ private fun YearMonthDayPicker(currentMillis: Long, maxDate: Long = System.curre
     val maxYear = nowCal.get(Calendar.YEAR)
 
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        // Year
         var showYear by remember { mutableStateOf(false) }
         Box {
             TextButton(onClick = { showYear = true }) { Text("${year}年") }
@@ -295,7 +511,6 @@ private fun YearMonthDayPicker(currentMillis: Long, maxDate: Long = System.curre
                 }
             }
         }
-        // Month
         var showMonth by remember { mutableStateOf(false) }
         Box {
             TextButton(onClick = { showMonth = true }) { Text("${month + 1}月") }
@@ -305,7 +520,6 @@ private fun YearMonthDayPicker(currentMillis: Long, maxDate: Long = System.curre
                 }
             }
         }
-        // Day
         var showDay by remember { mutableStateOf(false) }
         Box {
             TextButton(onClick = { showDay = true }) { Text("${day}日") }

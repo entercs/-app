@@ -29,10 +29,24 @@ class PaymentAccountRepository(private val dao: PaymentAccountDao) {
     suspend fun create(name: String, type: String, color: String, balance: Double): Long =
         dao.insert(PaymentAccountEntity(name = name, type = type, color = color, balance = balance))
 
+    suspend fun delete(id: Long) = dao.deleteById(id)
+
+    // One-time: rename old default names
+    suspend fun fixAccountNames() {
+        val wechat = dao.getByType("wechat")
+        if (wechat != null && wechat.name == "微信支付") {
+            dao.updateNameAndColor(wechat.id, "微信", wechat.color)
+        }
+        val jd = dao.getByType("jd")
+        if (jd != null && jd.name == "京东商城") {
+            dao.updateNameAndColor(jd.id, "京东", jd.color)
+        }
+    }
+
     suspend fun seedIfEmpty() {
         if (dao.count() == 0) {
             listOf(
-                PaymentAccountEntity(1, "微信支付", "wechat", true, "#07C160"),
+                PaymentAccountEntity(1, "微信", "wechat", true, "#07C160"),
                 PaymentAccountEntity(2, "支付宝", "alipay", true, "#1677FF"),
                 PaymentAccountEntity(3, "京东", "jd", true, "#E3312C"),
                 PaymentAccountEntity(4, "银行卡", "bank", true, "#F5A623"),

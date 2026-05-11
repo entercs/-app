@@ -16,6 +16,14 @@ class WeChatPayParser : NotificationParser {
 
     override fun parse(packageName: String, title: String, text: String): ParsedNotification? {
         if (packageName != "com.tencent.mm") return null
+
+        // Require payment context: must NOT be a regular chat message
+        val paymentKeywords = listOf("支付", "付款", "收款", "账单", "扣款", "消费", "交易", "提现", "退款")
+        val hasPaymentContext = title == "微信支付" || title.contains("支付")
+                || title.contains("付款") || title.contains("收款") || title.contains("转账")
+                || paymentKeywords.any { it in text }
+        if (!hasPaymentContext) return null
+
         val combined = "$title $text"
 
         var amount = amountSymbolPattern.find(combined)?.groupValues?.get(1)?.toDoubleOrNull()
@@ -26,7 +34,7 @@ class WeChatPayParser : NotificationParser {
 
         val merchant = merchantPattern.find(combined)?.groupValues?.get(1)?.trim()
             ?: merchantPayPattern.find(combined)?.groupValues?.get(1)?.trim()
-            ?: "微信支付"
+            ?: "微信"
 
         return ParsedNotification(
             amount = amount,

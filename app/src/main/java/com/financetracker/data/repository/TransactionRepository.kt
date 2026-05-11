@@ -85,8 +85,13 @@ class TransactionRepository(
         endOfMonth: Long,
     ): Double = dao.getTotalByType(type.name, startOfMonth, endOfMonth) ?: 0.0
 
-    suspend fun getCategoryTotal(categoryId: Long, startOfMonth: Long, endOfMonth: Long): Double =
-        dao.getCategoryTotal(categoryId, startOfMonth, endOfMonth)
+    suspend fun getCategoryTotal(type: TransactionType, categoryId: Long, startOfMonth: Long, endOfMonth: Long): Double =
+        dao.getCategoryTotal(type.name, categoryId, startOfMonth, endOfMonth)
+
+    suspend fun countByAccountId(accountId: Long): Int = dao.countByAccountId(accountId)
+
+    suspend fun getDailyTotals(type: TransactionType, start: Long, end: Long): List<com.financetracker.data.db.dao.DailyTotal> =
+        dao.getDailyTotals(type.name, start, end)
 
     private fun Flow<List<TransactionEntity>>.mapToDomain(): Flow<List<Transaction>> =
         map { list -> list.map { it.toDomain() } }
