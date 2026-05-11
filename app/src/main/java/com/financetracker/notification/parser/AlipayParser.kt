@@ -22,7 +22,7 @@ class AlipayParser : NotificationParser {
     private val merchantPayPattern = Regex("(?:向|给|转给)(.+?)(?:付款|转账|支付)")
 
     override fun parse(packageName: String, title: String, text: String): ParsedNotification? {
-        if (packageName != "com.eg.android.AlipayGphone") return null
+        if (packageName !in supportedPackages) return null
         val combined = "$title $text"
 
         // Extract amount - try 元 format first, then ¥ format

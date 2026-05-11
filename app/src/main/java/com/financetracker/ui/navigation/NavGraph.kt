@@ -60,17 +60,8 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
                 navArgument("editId") { type = NavType.LongType; defaultValue = -1L },
                 navArgument("refundId") { type = NavType.LongType; defaultValue = -1L },
             ),
-            enterTransition = {
-                slideInHorizontally(animationSpec = tween(ANIM_DURATION)) { it } + fadeIn(animationSpec = tween(ANIM_DURATION))
-            },
-            exitTransition = {
-                slideOutHorizontally(animationSpec = tween(ANIM_DURATION)) { -it } + fadeOut(animationSpec = tween(ANIM_DURATION))
-            },
             popEnterTransition = {
                 slideInHorizontally(animationSpec = tween(ANIM_DURATION)) { -it } + fadeIn(animationSpec = tween(ANIM_DURATION))
-            },
-            popExitTransition = {
-                slideOutHorizontally(animationSpec = tween(ANIM_DURATION)) { it } + fadeOut(animationSpec = tween(ANIM_DURATION))
             },
         ) { backStackEntry ->
             val editId = backStackEntry.arguments?.getLong("editId") ?: -1L

@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
 import com.financetracker.MainActivity
@@ -13,8 +14,12 @@ import com.financetracker.domain.model.TransactionType
 import com.financetracker.notification.classifier.AutoClassifier
 import com.financetracker.notification.parser.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class FinanceNotificationService : AccessibilityService() {
+
+    companion object { private const val TAG = "FT" }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val parsers: List<NotificationParser> = listOf(
@@ -31,6 +36,7 @@ class FinanceNotificationService : AccessibilityService() {
 
     // Global dedup: prevent same amount from being recorded twice within 30s
     private val recentRecordedAmounts = mutableMapOf<Double, Long>()
+    private val dedupMutex = Mutex()
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val packageName = event.packageName?.toString() ?: return
@@ -43,25 +49,13 @@ class FinanceNotificationService : AccessibilityService() {
             }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 if (!isPaymentApp && packageName !in topScreenPackages) return
-                scope.launch {
-                    delay(200)
-                    val root = rootInActiveWindow
-                    if (root != null) {
-                        handleWindowContent(root, packageName)
-                        root.recycle()
-                    }
-                }
+                if (isPaymentApp) Log.d(TAG, "窗口内容变化: $packageName")
+                scope.launch { captureAndParse(packageName, initialDelayMs = 0) }
             }
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 if (!isPaymentApp && packageName !in topScreenPackages) return
-                scope.launch {
-                    delay(500)
-                    val root = rootInActiveWindow
-                    if (root != null) {
-                        handleWindowContent(root, packageName)
-                        root.recycle()
-                    }
-                }
+                if (isPaymentApp) Log.d(TAG, "窗口状态变化: $packageName")
+                scope.launch { captureAndParse(packageName, initialDelayMs = 100) }
             }
         }
     }
@@ -117,29 +111,44 @@ class FinanceNotificationService : AccessibilityService() {
         }
     }
 
-    private fun handleWindowContent(root: android.view.accessibility.AccessibilityNodeInfo, packageName: String) {
+    private suspend fun captureAndParse(packageName: String, initialDelayMs: Long) {
+        if (initialDelayMs > 0) delay(initialDelayMs)
+        val root = rootInActiveWindow ?: run {
+            Log.d(TAG, "rootInActiveWindow 为 null ($packageName)")
+            return
+        }
+        try {
+            handleWindowContent(root, packageName)
+        } finally {
+            root.recycle()
+        }
+    }
+
+    private suspend fun handleWindowContent(root: android.view.accessibility.AccessibilityNodeInfo, packageName: String) {
         val now = System.currentTimeMillis()
 
-        val contentHash = listNotNullTexts(root).hashCode()
+        val screenTexts = listNotNullTexts(root)
+        val contentHash = screenTexts.hashCode()
         if (now - lastScreenCaptureTime < 2000 && contentHash == lastScreenCaptureHash) return
 
-        scope.launch {
-            val parsed = screenParser.parse(packageName, root)
-            val screenTexts = listNotNullTexts(root)
-            NotificationLogger.log(NotificationLogEntry(
-                timestamp = now,
-                packageName = packageName,
-                title = "[屏幕内容]",
-                text = screenTexts.take(5).joinToString(" | "),
-                parsed = parsed != null,
-                parsedAmount = parsed?.amount,
-            ))
-            if (parsed != null) {
-                lastScreenCaptureTime = now
-                lastScreenCaptureHash = contentHash
-                recordTransaction(parsed, packageName)
-                showNotification("已自动记账(屏幕)", "${parsed.merchant} ${String.format("%.2f", parsed.amount)}")
-            }
+        val parsed = screenParser.parse(packageName, root)
+        NotificationLogger.log(NotificationLogEntry(
+            timestamp = now,
+            packageName = packageName,
+            title = "[屏幕内容]",
+            text = screenTexts.take(10).joinToString(" | "),
+            parsed = parsed != null,
+            parsedAmount = parsed?.amount,
+        ))
+        if (parsed != null) {
+            Log.d(TAG, "屏幕解析成功: $packageName → ${parsed.merchant} ${parsed.amount}")
+            lastScreenCaptureTime = now
+            lastScreenCaptureHash = contentHash
+            recordTransaction(parsed, packageName)
+            showNotification("已自动记账(屏幕)", "${parsed.merchant} ${String.format("%.2f", parsed.amount)}")
+        } else {
+            val hasKw = screenParser.hasPayKeywords(screenTexts)
+            Log.d(TAG, "屏幕解析失败: $packageName, 文本数=${screenTexts.size}, 有关键词=$hasKw, 首5条=${screenTexts.take(5)}")
         }
     }
 
@@ -166,12 +175,14 @@ class FinanceNotificationService : AccessibilityService() {
     ) {
         val now = System.currentTimeMillis()
 
-        // Global dedup: same amount within 30s → skip
-        val lastTime = recentRecordedAmounts[parsed.amount]
-        if (lastTime != null && now - lastTime < 30_000) return
-
-        // Clean old entries
-        recentRecordedAmounts.entries.removeAll { now - it.value > 60_000 }
+        // Atomic dedup: only one coroutine can pass for the same amount
+        val shouldRecord = dedupMutex.withLock {
+            val lastTime = recentRecordedAmounts[parsed.amount]
+            if (lastTime != null && now - lastTime < 30_000) return
+            recentRecordedAmounts.entries.removeAll { now - it.value > 60_000 }
+            recentRecordedAmounts[parsed.amount] = now
+            true
+        }
 
         val db = com.financetracker.FinanceTrackerApp.instance.database
         // Match account by package name, fall back to parser's accountType
@@ -189,7 +200,6 @@ class FinanceNotificationService : AccessibilityService() {
             source = "notification",
         )
         com.financetracker.di.AppModule.transactionRepository.add(transaction)
-        recentRecordedAmounts[parsed.amount] = now
     }
 
     private fun showNotification(title: String, content: String) {

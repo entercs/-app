@@ -11,9 +11,6 @@ class BankCardParser : NotificationParser {
         "cmb.pb",                    // 招商银行
         "com.bankcomm.maidanba",     // 交通银行
         "com.psbc.mobilebank",       // 邮储银行
-        "com.spdb.mobilebank",       // 浦发银行
-        "com.cib.finance",           // 兴业银行
-        "com.cmbc.mbank",            // 民生银行
         "cn.gov.pbc.dcep",           // 数字人民币
     )
 

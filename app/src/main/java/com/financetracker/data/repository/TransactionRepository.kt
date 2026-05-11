@@ -71,12 +71,8 @@ class TransactionRepository(
     }
 
     private suspend fun updateAccountBalance(accountId: Long, amount: Double, type: TransactionType) {
-        val account = accountDao.getById(accountId) ?: return
-        val newBalance = if (type == TransactionType.EXPENSE)
-            account.balance - amount
-        else
-            account.balance + amount
-        accountDao.updateBalance(accountId, newBalance)
+        val delta = if (type == TransactionType.EXPENSE) -amount else amount
+        accountDao.adjustBalance(accountId, delta)
     }
 
     suspend fun getMonthlyTotal(
