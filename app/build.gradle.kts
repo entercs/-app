@@ -14,7 +14,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = "2.8.0"
     }
 
     buildTypes {
@@ -74,8 +74,8 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
-    // ML Kit OCR
-    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    // ML Kit OCR (disabled to reduce APK size)
+    // implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
 
     // Core
     implementation("androidx.core:core-ktx:1.15.0")
