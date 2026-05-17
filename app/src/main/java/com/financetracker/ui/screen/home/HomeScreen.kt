@@ -3,6 +3,7 @@ package com.financetracker.ui.screen.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -155,29 +156,31 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         val listState = rememberLazyListState()
+        val scope = rememberCoroutineScope()
 
         // Initially scroll past the search bar (item 0) to hide it
         LaunchedEffect(Unit) {
             listState.scrollToItem(1, 0)
         }
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // Search bar — initially scrolled off-screen above, pull down to reveal
-            item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("搜索…", fontSize = 14.sp) },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                )
-            }
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Search bar — initially scrolled off-screen above, pull down to reveal
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("搜索…", fontSize = 14.sp) },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                    )
+                }
 
             // Summary card
             item {
@@ -259,6 +262,7 @@ fun HomeScreen(
             }
 
             item { Spacer(modifier = Modifier.height(80.dp)) }
+            }
         }
     }
 }
