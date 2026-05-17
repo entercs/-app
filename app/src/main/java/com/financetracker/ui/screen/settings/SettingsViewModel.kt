@@ -52,7 +52,7 @@ class SettingsViewModel(
     fun refreshAccessibilityStatus() {
         val accessibilityManager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
         val enabledServices = accessibilityManager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_GENERIC)
-        val isEnabled = enabledServices.any { it.id.contains(FinanceNotificationService::class.java.name) }
+        val isEnabled = enabledServices.any { it.id?.contains("FinanceNotification") == true }
         _isAccessibilityEnabled.value = isEnabled
     }
 

@@ -228,11 +228,6 @@ fun SettingsScreen() {
                                                     showDialog = false
                                                 },
                                             )
-                                            if (acc.type == "bank") {
-                                                TextButton(onClick = { showBankPicker = true; showDialog = false }) {
-                                                    Text("选择银行卡…")
-                                                }
-                                            }
                                         }
                                     },
                                     confirmButton = {},
@@ -437,13 +432,9 @@ fun SettingsScreen() {
                             )
                         }
                         Switch(
-                            checked = isNotificationEnabled && isAccessibilityEnabled,
+                            checked = isNotificationEnabled,
                             onCheckedChange = { enabled ->
-                                if (enabled && !isAccessibilityEnabled) {
-                                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                } else {
-                                    viewModel.toggleNotification(enabled)
-                                }
+                                viewModel.toggleNotification(enabled)
                             },
                         )
                     }
