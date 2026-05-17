@@ -4,5 +4,6 @@ data class ParsedNotification(
     val amount: Double,
     val merchant: String,
     val accountType: String,
+    val transactionType: TransactionType = TransactionType.EXPENSE,
     val payTime: Long,
 )

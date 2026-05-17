@@ -3,6 +3,7 @@ package com.financetracker.notification
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import com.financetracker.domain.model.ParsedNotification
+import com.financetracker.domain.model.TransactionType
 
 class ScreenContentParser {
 
@@ -112,7 +113,7 @@ class ScreenContentParser {
             else -> "bank"
         }
 
-        return ParsedNotification(amount, merchant, accountType, System.currentTimeMillis())
+        return ParsedNotification(amount, merchant, accountType, TransactionType.EXPENSE, System.currentTimeMillis())
     }
 
     private fun collectTexts(node: AccessibilityNodeInfo, maxNodes: Int): List<String> {

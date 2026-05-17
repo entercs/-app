@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.financetracker.di.AppModule
 import com.financetracker.domain.model.Banks
+import com.financetracker.ui.component.AccountLogo
+import com.financetracker.ui.component.BalanceKeypad
 import com.financetracker.ui.theme.AccountIconDisplay
 import com.financetracker.ui.theme.Green500
 import com.financetracker.ui.theme.Red500
@@ -63,20 +65,22 @@ import com.financetracker.ui.theme.Red500
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SettingsScreen() {
+    val context = LocalContext.current
     val factory = remember {
         SettingsViewModel.Factory(
             AppModule.appPreferences,
             AppModule.categoryRepository,
             AppModule.paymentAccountRepository,
             AppModule.transactionRepository,
+            context,
         )
     }
     val viewModel: SettingsViewModel = viewModel(factory = factory)
+    val isAccessibilityEnabled by viewModel.isAccessibilityEnabled.collectAsState()
     val isNotificationEnabled by viewModel.isNotificationEnabled.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
     val exportState by viewModel.exportState.collectAsState()
     val feedback by viewModel.feedback.collectAsState()
-    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(feedback) {
@@ -169,6 +173,7 @@ fun SettingsScreen() {
                             }
 
                             if (showDialog) {
+                                var tempBalance by remember { mutableStateOf("") }
                                 AlertDialog(
                                     onDismissRequest = { showDialog = false },
                                     title = {
@@ -184,12 +189,39 @@ fun SettingsScreen() {
                                     },
                                     text = {
                                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                            OutlinedTextField(
-                                                value = editText,
-                                                onValueChange = { editText = it },
-                                                label = { Text("余额（可正可负）") },
-                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                                singleLine = true,
+                                            // Balance display
+                                            Card(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(16.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                ) {
+                                                    Text(
+                                                        tempBalance.ifEmpty { "0" },
+                                                        fontSize = 32.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                    )
+                                                }
+                                            }
+                                            // Keypad
+                                            BalanceKeypad(
+                                                onKey = { key ->
+                                                    if (key == "." && tempBalance.contains(".")) return@BalanceKeypad
+                                                    if (tempBalance == "0" && key != ".") {
+                                                        tempBalance = key
+                                                    } else {
+                                                        tempBalance += key
+                                                    }
+                                                },
+                                                onBackspace = {
+                                                    tempBalance = if (tempBalance.length > 1) tempBalance.dropLast(1) else ""
+                                                },
+                                                onDone = {
+                                                    tempBalance.toDoubleOrNull()?.let { viewModel.setBalance(acc.id, it) }
+                                                    showDialog = false
+                                                },
                                             )
                                             if (acc.type == "bank") {
                                                 TextButton(onClick = { showBankPicker = true; showDialog = false }) {
@@ -198,12 +230,7 @@ fun SettingsScreen() {
                                             }
                                         }
                                     },
-                                    confirmButton = {
-                                        TextButton(onClick = {
-                                            editText.toDoubleOrNull()?.let { viewModel.setBalance(acc.id, it) }
-                                            showDialog = false
-                                        }) { Text("确定") }
-                                    },
+                                    confirmButton = {},
                                     dismissButton = {
                                         TextButton(onClick = { showDialog = false }) { Text("取消") }
                                     },
@@ -247,16 +274,16 @@ fun SettingsScreen() {
                         var createType by remember { mutableStateOf("bank") }
                         var createName by remember { mutableStateOf("") }
                         var createColor by remember { mutableStateOf("#F5A623") }
-                        var createBalance by remember { mutableStateOf("") }
 
                         TextButton(
-                            onClick = { showCreate = true; createName = ""; createBalance = "" },
+                            onClick = { showCreate = true; createName = "" },
                             modifier = Modifier.fillMaxWidth().padding(4.dp),
                         ) {
                             Text("+ 添加账户")
                         }
 
                         if (showCreate) {
+                            var tempBalance by remember { mutableStateOf("") }
                             AlertDialog(
                                 onDismissRequest = { showCreate = false },
                                 title = { Text("添加账户") },
@@ -294,7 +321,7 @@ fun SettingsScreen() {
                                                                     }.padding(8.dp),
                                                                     verticalAlignment = Alignment.CenterVertically,
                                                                 ) {
-                                                                    com.financetracker.ui.component.AccountLogo(type = "bank", accountName = bank.name, size = 24.dp)
+                                                                    AccountLogo(type = "bank", accountName = bank.name, size = 24.dp)
                                                                     Spacer(modifier = Modifier.width(12.dp))
                                                                     Text(bank.name)
                                                                 }
@@ -305,21 +332,45 @@ fun SettingsScreen() {
                                                     dismissButton = { TextButton(onClick = { showBankList = false }) { Text("取消") } },
                                                 )
                                             }
-                                        } else if (createType != "jd") {
+                                        } else {
                                             OutlinedTextField(value = createName, onValueChange = { createName = it }, label = { Text("名称") }, singleLine = true)
                                         }
-                                        OutlinedTextField(
-                                            value = createBalance,
-                                            onValueChange = { createBalance = it },
-                                            label = { Text("初始余额") },
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                            singleLine = true,
+                                        // Balance display
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(16.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                            ) {
+                                                Text(
+                                                    tempBalance.ifEmpty { "0" },
+                                                    fontSize = 28.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                )
+                                            }
+                                        }
+                                        // Keypad
+                                        BalanceKeypad(
+                                            onKey = { key ->
+                                                if (key == "." && tempBalance.contains(".")) return@BalanceKeypad
+                                                if (tempBalance == "0" && key != ".") {
+                                                    tempBalance = key
+                                                } else {
+                                                    tempBalance += key
+                                                }
+                                            },
+                                            onBackspace = {
+                                                tempBalance = if (tempBalance.length > 1) tempBalance.dropLast(1) else ""
+                                            },
+                                            onDone = {},
                                         )
                                     }
                                 },
                                 confirmButton = {
                                     TextButton(onClick = {
-                                        val bal = createBalance.toDoubleOrNull() ?: 0.0
+                                        val bal = tempBalance.toDoubleOrNull() ?: 0.0
                                         val name = createName.ifBlank { if (createType == "bank") "银行卡" else when (createType) { "wechat" -> "微信"; "alipay" -> "支付宝"; "jd" -> "京东"; else -> "其他" } }
                                         viewModel.createAccount(name, createType, createColor, bal)
                                         showCreate = false
@@ -374,23 +425,30 @@ fun SettingsScreen() {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("自动记账", style = MaterialTheme.typography.bodyLarge)
                             Text(
-                                "开启后监听支付通知自动记账",
+                                if (isAccessibilityEnabled) "无障碍已开启，正在监听"
+                                   else "无障碍未开启，点击开启",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (isAccessibilityEnabled) Green500 else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Switch(
-                            checked = isNotificationEnabled,
+                            checked = isNotificationEnabled && isAccessibilityEnabled,
                             onCheckedChange = { enabled ->
-                                viewModel.toggleNotification(enabled)
-                                if (enabled) {
+                                if (enabled && !isAccessibilityEnabled) {
                                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                } else {
+                                    viewModel.toggleNotification(enabled)
                                 }
                             },
                         )
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
+                TextButton(onClick = {
+                    viewModel.refreshAccessibilityStatus()
+                }) {
+                    Text("刷新无障碍状态")
+                }
                 TextButton(onClick = {
                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }) {

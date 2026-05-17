@@ -1,6 +1,7 @@
 package com.financetracker.notification.parser
 
 import com.financetracker.domain.model.ParsedNotification
+import com.financetracker.domain.model.TransactionType
 
 class AlipayParser : NotificationParser {
     override val supportedPackages = listOf(
@@ -9,6 +10,11 @@ class AlipayParser : NotificationParser {
         "com.eg.android.AlipayGphoneGlobal",
         "hk.alipay.wallet",
     )
+
+    // 收入关键词
+    private val incomeKeywords = listOf("收款", "入账", "到账", "转入", "存入", "收入", "奖励", "红包", "退款", "提现到账", "收到")
+    // 支出关键词
+    private val expenseKeywords = listOf("支付", "付款", "消费", "转出", "提现", "还款", "转账")
 
     // 匹配 "12.50元" 或 "12元" 格式
     private val amountYuanPattern = Regex("(\\d+\\.?\\d*)\\s*元")
@@ -25,23 +31,28 @@ class AlipayParser : NotificationParser {
         if (packageName !in supportedPackages) return null
         val combined = "$title $text"
 
-        // Extract amount - try 元 format first, then ¥ format
+        // 提取金额
         var amount = amountYuanPattern.find(combined)?.groupValues?.get(1)?.toDoubleOrNull()
         if (amount == null) {
             amount = amountSymbolPattern.find(combined)?.groupValues?.get(1)?.toDoubleOrNull()
         }
         if (amount == null) return null
 
-        // Extract merchant - try multiple patterns
+        // 判断收入还是支出
+        val isIncome = incomeKeywords.any { combined.contains(it) }
+        val type = if (isIncome) TransactionType.INCOME else TransactionType.EXPENSE
+
+        // 提取商户
         val merchant = merchantInlinePattern.find(combined)?.groupValues?.get(1)?.trim()
             ?: merchantTagPattern.find(combined)?.groupValues?.get(1)?.trim()
             ?: merchantPayPattern.find(combined)?.groupValues?.get(1)?.trim()
-            ?: "支付宝"
+            ?: if (type == TransactionType.INCOME) "支付宝收入" else "支付宝"
 
         return ParsedNotification(
             amount = amount,
             merchant = merchant,
             accountType = "alipay",
+            transactionType = type,
             payTime = System.currentTimeMillis(),
         )
     }

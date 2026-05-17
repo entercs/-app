@@ -192,7 +192,7 @@ class FinanceNotificationService : AccessibilityService() {
 
         val transaction = com.financetracker.domain.model.Transaction(
             amount = parsed.amount,
-            type = TransactionType.EXPENSE,
+            type = parsed.transactionType,
             categoryId = categoryId,
             accountId = account.id,
             merchant = parsed.merchant,
