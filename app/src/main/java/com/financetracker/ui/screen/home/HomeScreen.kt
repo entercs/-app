@@ -155,16 +155,19 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         val listState = rememberLazyListState()
-        LaunchedEffect(Unit) { listState.scrollToItem(1) }
+
+        // Initially scroll past the search bar (item 0) to hide it
+        LaunchedEffect(Unit) {
+            listState.scrollToItem(1, 0)
+        }
 
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Search bar — hidden off-screen above, pull down to reveal
+            // Search bar — initially scrolled off-screen above, pull down to reveal
             item {
-                Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },

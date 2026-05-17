@@ -93,7 +93,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
                 transactionId = transactionId,
                 onNavigateBack = { navController.popBackStack() },
                 onEdit = { id -> navController.navigate(Screen.addTransactionRoute(id)) },
-                onRefund = { id -> navController.navigate(Screen.addTransactionRoute(refundId = id)) },
+                onRefund = { navController.popBackStack() },
             )
         }
     }
