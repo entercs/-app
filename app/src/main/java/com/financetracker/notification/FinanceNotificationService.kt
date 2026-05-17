@@ -74,9 +74,20 @@ class FinanceNotificationService : AccessibilityService() {
 
     // 银行类app有管控，检测到无障碍会拒绝操作，跳过屏幕内容读取
     private val protectedBankPackages = setOf(
-        "com.cmbchina.ccs.pluto",   // 招商银行
-        "com.cmbc.ccs",             // 招商银行(旧)
-        "com.cmbchina.pocket",      // 招商银行掌上生活
+        // 招商银行
+        "com.cmbchina.ccs.pluto", "com.cmbc.ccs", "com.cmbchina.pocket", "cmb.pb",
+        // 工商银行
+        "com.icbc",
+        // 建设银行
+        "com.chinamworld.main",
+        // 农业银行
+        "com.android.bankabc",
+        // 中国银行
+        "com.chinamworld.bocmbci",
+        // 交通银行
+        "com.bankcomm.maidanba",
+        // 邮储银行
+        "com.psbc.mobilebank",
     )
 
     // Known app packages where payment may happen via in-app screens or webviews
