@@ -42,6 +42,18 @@ class FinanceNotificationService : AccessibilityService() {
         val packageName = event.packageName?.toString() ?: return
         val isPaymentApp = parsers.any { packageName in it.supportedPackages }
 
+        // 银行类app有管控，检测到无障碍会拒绝操作，跳过屏幕内容读取
+        val isProtectedBank = packageName in protectedBankPackages
+        if (isProtectedBank) {
+            Log.d(TAG, "检测到受保护银行app，仅处理通知: $packageName")
+            // 银行app只处理通知，不读取屏幕内容
+            if (event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) {
+                val parser = parsers.firstOrNull { packageName in it.supportedPackages } ?: return
+                handleNotification(event, parser, packageName)
+            }
+            return
+        }
+
         when (event.eventType) {
             AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
                 val parser = parsers.firstOrNull { packageName in it.supportedPackages } ?: return
@@ -59,6 +71,13 @@ class FinanceNotificationService : AccessibilityService() {
             }
         }
     }
+
+    // 银行类app有管控，检测到无障碍会拒绝操作，跳过屏幕内容读取
+    private val protectedBankPackages = setOf(
+        "com.cmbchina.ccs.pluto",   // 招商银行
+        "com.cmbc.ccs",             // 招商银行(旧)
+        "com.cmbchina.pocket",      // 招商银行掌上生活
+    )
 
     // Known app packages where payment may happen via in-app screens or webviews
     private val topScreenPackages = setOf(
