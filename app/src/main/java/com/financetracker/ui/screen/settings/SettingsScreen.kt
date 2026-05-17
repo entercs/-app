@@ -90,6 +90,11 @@ fun SettingsScreen() {
         }
     }
 
+    // 每次进入设置页都刷新无障碍状态
+    LaunchedEffect(Unit) {
+        viewModel.refreshAccessibilityStatus()
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
